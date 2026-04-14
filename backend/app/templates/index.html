@@ -1,0 +1,302 @@
+<!DOCTYPE html>
+<html lang="cz">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Předpověď koroze</title>
+    <link rel="stylesheet" href="{{ url_for('static', path='/css/styles.css') }}">
+</head>
+<body>
+    <h1>Data</h1>
+    <h2>Výběr tabulky</h2>
+    <form method="get">
+        <select name="table" onchange="
+            const p = new URLSearchParams(window.location.search);
+            p.set('table', this.value);
+            p.set('page', 1);
+            p.set('limit', '{{ limit }}');
+            p.delete('model');
+            window.location.search = p.toString();">
+
+            <option value= "None"
+                {% if not selected_table %} selected {% endif %}>
+                -- Vyberte tabulku --
+            <option value="meteo"
+                {% if selected_table == "meteo" %} selected {% endif %}>
+                Meteo
+            </option>
+            <option value="meteo_prediction"
+                {% if selected_table == "meteo_prediction" %} selected {% endif %}>
+                Meteo Prediction
+            </option>
+        </select>
+    </form>
+    <hr>
+    {% if selected_table == "meteo" %}
+        {% if data|length == 0 %}
+            <p>Nebyla nalezena žádná data pro tabulku "Meteo".</p>
+        {% else %}
+            <div class="pagination-bar">
+                <div class="rows-select-wrap">
+                    <label for="rowsPerPage">Řádků na stránku:</label>
+                    <select class="rowsPerPage" name="limit" onchange="goToPage(1, this)">
+                    <option value="5"   {% if limit == 5   %} selected {% endif %}>5</option>
+                    <option value="10"  {% if limit == 10  %} selected {% endif %}>10</option>
+                    <option value="25"  {% if limit == 25  %} selected {% endif %}>25</option>
+                    <option value="50"  {% if limit == 50  %} selected {% endif %}>50</option>
+                    <option value="100" {% if limit == 100 %} selected {% endif %}>100</option>
+                    </select>
+                </div>
+
+                <div class="page-counter">
+                    <button onclick="goToPage(1, this)"              {% if page <= 1 %} disabled {% endif %}>&#8676;</button>
+                    <button onclick="goToPage({{ page - 1 }}, this)" {% if page <= 1 %} disabled {% endif %}>&#8592;</button>
+                    <span class="page-display">{{ page }} / {{ total_pages }}</span>
+                    <button onclick="goToPage({{ page + 1 }}, this)" {% if page >= total_pages %} disabled {% endif %}>&#8594;</button>
+                    <button onclick="goToPage({{ total_pages }}, this)" {% if page >= total_pages %} disabled {% endif %}>&#8677;</button>
+                </div>
+
+                <span class="page-info">
+                    {{ (page - 1) * limit + 1 }}–{{ [page * limit, total_count] | min }} z {{ total_count }} záznamů
+                </span>
+            </div>
+
+            <table border="1">
+                <thead>
+                    <tr>
+                        <th>Datum</th>
+                        <th>Teplota [°C]</th>
+                        <th>Rosný bod [°C]</th>
+                        <th>Směr větru [°]</th>
+                        <th>Atmosferický tlak [hPa]</th>
+                        <th>Rychlost větru [m/s]</th>
+                        <th>Vlhkost [%]</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for row in data %}
+                    <tr>
+                        <td>{{ row.Datetime }}</td>
+                        <td>{{ row.temp_out }}</td>
+                        <td>{{ row.dew_out }}</td>
+                        <td>{{ row.winddir }}</td>
+                        <td>{{ row.qnh }}</td>
+                        <td>{{ row.windspeed }}</td>
+                        <td>{{ row.hum_out }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            
+            <div class="pagination-bar">
+                <div class="rows-select-wrap">
+                    <label for="rowsPerPage">Řádků na stránku:</label>
+                    <select class="rowsPerPage" name="limit" onchange="goToPage(1, this)">
+                    <option value="5"   {% if limit == 5   %} selected {% endif %}>5</option>
+                    <option value="10"  {% if limit == 10  %} selected {% endif %}>10</option>
+                    <option value="25"  {% if limit == 25  %} selected {% endif %}>25</option>
+                    <option value="50"  {% if limit == 50  %} selected {% endif %}>50</option>
+                    <option value="100" {% if limit == 100 %} selected {% endif %}>100</option>
+                    </select>
+                </div>
+
+                <div class="page-counter">
+                    <button onclick="goToPage(1, this)"              {% if page <= 1 %} disabled {% endif %}>&#8676;</button>
+                    <button onclick="goToPage({{ page - 1 }}, this)" {% if page <= 1 %} disabled {% endif %}>&#8592;</button>
+                    <span class="page-display">{{ page }} / {{ total_pages }}</span>
+                    <button onclick="goToPage({{ page + 1 }}, this)" {% if page >= total_pages %} disabled {% endif %}>&#8594;</button>
+                    <button onclick="goToPage({{ total_pages }}, this)" {% if page >= total_pages %} disabled {% endif %}>&#8677;</button>
+                </div>
+
+                <span class="page-info">
+                    {{ (page - 1) * limit + 1 }}–{{ [page * limit, total_count] | min }} z {{ total_count }} záznamů
+                </span>
+            </div>
+
+        {% endif %}
+    {% elif selected_table == "meteo_prediction" %}
+        <h2>Výběr modelu</h2>
+        <form method="get">
+            <select name="model" onchange="
+                const q = new URLSearchParams(window.location.search);
+                q.set('model', this.value);
+                q.set('page', 1);
+                q.set('limit', '{{ limit }}');
+                window.location.search = q.toString();">
+                <option value= "None"
+                    {% if not selected_model %} selected {% endif %}>
+                    Všechny modely
+                </option>
+                {% for model_name in meteo_models %}
+                    <option value="{{ model_name }}"
+                        {% if selected_model == model_name %} selected {% endif %}>
+                        {{ model_name }}
+                    </option>
+                {% endfor %}
+            </select>
+        </form>
+        
+
+        {% if data|length == 0 %}
+            <p>Nebyla nalezena žádná data pro tabulku "Meteo Prediction".</p>
+
+        {% else %}
+            {% if selected_model == "None" %}
+                <div class="pagination-bar">
+                    <div class="rows-select-wrap">
+                        <label for="rowsPerPage">Řádků na stránku:</label>
+                        <select class="rowsPerPage" name="limit" onchange="goToPage(1, this)">
+                        <option value="5"   {% if limit == 5   %} selected {% endif %}>5</option>
+                        <option value="10"  {% if limit == 10  %} selected {% endif %}>10</option>
+                        <option value="25"  {% if limit == 25  %} selected {% endif %}>25</option>
+                        <option value="50"  {% if limit == 50  %} selected {% endif %}>50</option>
+                        <option value="100" {% if limit == 100 %} selected {% endif %}>100</option>
+                        </select>
+                    </div>
+
+                    <div class="page-counter">
+                        <button onclick="goToPage(1, this)"              {% if page <= 1 %} disabled {% endif %}>&#8676;</button>
+                        <button onclick="goToPage({{ page - 1 }}, this)" {% if page <= 1 %} disabled {% endif %}>&#8592;</button>
+                        <span class="page-display">{{ page }} / {{ total_pages }}</span>
+                        <button onclick="goToPage({{ page + 1 }}, this)" {% if page >= total_pages %} disabled {% endif %}>&#8594;</button>
+                        <button onclick="goToPage({{ total_pages }}, this)" {% if page >= total_pages %} disabled {% endif %}>&#8677;</button>
+                    </div>
+
+                    <span class="page-info">
+                        {{ (page - 1) * limit + 1 }}–{{ [page * limit, total_count] | min }} z {{ total_count }} záznamů
+                    </span>
+                </div>
+
+                <table border="1">
+                    <thead>
+                        <tr>
+                            <th>Datum</th>
+                            <th>Model</th>
+                            <th>Suma koroze [&#956;m]</th>
+                            <th>Přírůstek koroze [&#956;m]</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for row in data %}
+                        <tr>
+                            <td>{{ row.Datetime }}</td>
+                            <td>{{ row.model_name }}</td>
+                            <td>{{ row.corr_sum }}</td>
+                            <td>{{ row.corr_diff }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+
+                <div class="pagination-bar">
+                    <div class="rows-select-wrap">
+                        <label for="rowsPerPage">Řádků na stránku:</label>
+                        <select class="rowsPerPage" name="limit" onchange="goToPage(1, this)">
+                        <option value="5"   {% if limit == 5   %} selected {% endif %}>5</option>
+                        <option value="10"  {% if limit == 10  %} selected {% endif %}>10</option>
+                        <option value="25"  {% if limit == 25  %} selected {% endif %}>25</option>
+                        <option value="50"  {% if limit == 50  %} selected {% endif %}>50</option>
+                        <option value="100" {% if limit == 100 %} selected {% endif %}>100</option>
+                        </select>
+                    </div>
+
+                    <div class="page-counter">
+                        <button onclick="goToPage(1, this)"              {% if page <= 1 %} disabled {% endif %}>&#8676;</button>
+                        <button onclick="goToPage({{ page - 1 }}, this)" {% if page <= 1 %} disabled {% endif %}>&#8592;</button>
+                        <span class="page-display">{{ page }} / {{ total_pages }}</span>
+                        <button onclick="goToPage({{ page + 1 }}, this)" {% if page >= total_pages %} disabled {% endif %}>&#8594;</button>
+                        <button onclick="goToPage({{ total_pages }}, this)" {% if page >= total_pages %} disabled {% endif %}>&#8677;</button>
+                    </div>
+
+                    <span class="page-info">
+                        {{ (page - 1) * limit + 1 }}–{{ [page * limit, total_count] | min }} z {{ total_count }} záznamů
+                    </span>
+                </div>
+
+            {% else %}
+                <div class="pagination-bar">
+                    <div class="rows-select-wrap">
+                        <label for="rowsPerPage">Řádků na stránku:</label>
+                        <select class="rowsPerPage" name="limit" onchange="goToPage(1, this)">
+                        <option value="5"   {% if limit == 5   %} selected {% endif %}>5</option>
+                        <option value="10"  {% if limit == 10  %} selected {% endif %}>10</option>
+                        <option value="25"  {% if limit == 25  %} selected {% endif %}>25</option>
+                        <option value="50"  {% if limit == 50  %} selected {% endif %}>50</option>
+                        <option value="100" {% if limit == 100 %} selected {% endif %}>100</option>
+                        </select>
+                    </div>
+
+                    <div class="page-counter">
+                        <button onclick="goToPage(1, this)"              {% if page <= 1 %} disabled {% endif %}>&#8676;</button>
+                        <button onclick="goToPage({{ page - 1 }}, this)" {% if page <= 1 %} disabled {% endif %}>&#8592;</button>
+                        <span class="page-display">{{ page }} / {{ total_pages }}</span>
+                        <button onclick="goToPage({{ page + 1 }}, this)" {% if page >= total_pages %} disabled {% endif %}>&#8594;</button>
+                        <button onclick="goToPage({{ total_pages }}, this)" {% if page >= total_pages %} disabled {% endif %}>&#8677;</button>
+                    </div>
+
+                    <span class="page-info">
+                        {{ (page - 1) * limit + 1 }}–{{ [page * limit, total_count] | min }} z {{ total_count }} záznamů
+                    </span>
+                </div>
+
+                <table border="1">
+                    <thead>
+                        <tr>
+                            <th>Datum</th>
+                            <th>Suma koroze [&#956;m]</th>
+                            <th>Přírůstek koroze [&#956;m]</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for row in data %}
+                        <tr>
+                            <td>{{ row.Datetime }}</td>
+                            <td>{{ row.corr_sum }}</td>
+                            <td>{{ row.corr_diff }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+
+                <div class="pagination-bar">
+                    <div class="rows-select-wrap">
+                        <label for="rowsPerPage">Řádků na stránku:</label>
+                        <select class="rowsPerPage" name="limit" onchange="goToPage(1, this)">
+                        <option value="5"   {% if limit == 5   %} selected {% endif %}>5</option>
+                        <option value="10"  {% if limit == 10  %} selected {% endif %}>10</option>
+                        <option value="25"  {% if limit == 25  %} selected {% endif %}>25</option>
+                        <option value="50"  {% if limit == 50  %} selected {% endif %}>50</option>
+                        <option value="100" {% if limit == 100 %} selected {% endif %}>100</option>
+                        </select>
+                    </div>
+
+                    <div class="page-counter">
+                        <button onclick="goToPage(1, this)"              {% if page <= 1 %} disabled {% endif %}>&#8676;</button>
+                        <button onclick="goToPage({{ page - 1 }}, this)" {% if page <= 1 %} disabled {% endif %}>&#8592;</button>
+                        <span class="page-display">{{ page }} / {{ total_pages }}</span>
+                        <button onclick="goToPage({{ page + 1 }}, this)" {% if page >= total_pages %} disabled {% endif %}>&#8594;</button>
+                        <button onclick="goToPage({{ total_pages }}, this)" {% if page >= total_pages %} disabled {% endif %}>&#8677;</button>
+                    </div>
+
+                    <span class="page-info">
+                        {{ (page - 1) * limit + 1 }}–{{ [page * limit, total_count] | min }} z {{ total_count }} záznamů
+                    </span>
+                </div>
+
+            {% endif %}
+        {% endif %}
+    {% endif %}
+</body>
+<script>
+function goToPage(p, trigger) {
+    const params = new URLSearchParams(window.location.search);
+    params.set('page', p);
+    // Pokud funkci zavolalo tlačítko (ne select), přečteme aktuální hodnotu selectu
+    const limitVal = trigger?.tagName === 'SELECT'
+        ? trigger.value
+        : document.querySelector('.rowsPerPage').value;
+    params.set('limit', limitVal);
+    window.location.search = params.toString();
+}
+</script>
+</html>
