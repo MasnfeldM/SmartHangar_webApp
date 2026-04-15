@@ -26,30 +26,32 @@ async def insert_meteo(meteo_rows: list[dict]):
             await conn.execute("ROLLBACK")
             print(f"Chyba při insertu do meteo: {e}")
 
-async def get_meteo(limit: int = 100, offset: int = 0):
+async def get_meteo(limit: int = 100, offset: int = 0) -> list[asyncpg.Record]:
     try:
         async with get_pool().acquire() as conn:
             return await conn.fetch("SELECT * FROM meteo ORDER BY \"Datetime\" ASC LIMIT $1 OFFSET $2", limit, offset)
-         
+            
     except Exception as e:
         print(f"Chyba při čtení z meteo: {e}")
         return []
 
-async def get_meteo_by_datetime(Datetime: list[datetime], offset: int = 0):
+async def get_meteo_by_datetime(Datetime: list[datetime], offset: int = 0) -> list[asyncpg.Record]:
     try:
         async with get_pool().acquire() as conn:
             return await conn.fetch("SELECT * FROM meteo WHERE \"Datetime\" = ANY($1) ORDER BY \"Datetime\" ASC OFFSET $2", Datetime, offset)
     except Exception as e:
         print(f"Chyba při čtení z meteo podle Datetime: {e}")
+        return []
 
-async def get_all_meteo():
+async def get_all_meteo() -> list[asyncpg.Record]:
     try:
         async with get_pool().acquire() as conn:
             return await conn.fetch("SELECT * FROM meteo ORDER BY \"Datetime\" ASC")
     except Exception as e:
         print(f"Chyba při čtení z meteo: {e}")
+        return []
 
-async def get_meteo_count():
+async def get_meteo_count() -> int:
     try:
         async with get_pool().acquire() as conn:
             result = await conn.fetchrow("SELECT COUNT(*) AS total FROM meteo")
@@ -92,91 +94,141 @@ async def delete_meteo(limit: int = 100, offset: int = 0):
 
 # ==================== METEO PREDICTION ====================
 
-async def insert_prediction(pred_rows: list[dict]):
+async def insert_prediction(pred_rows: list[dict], overwrite: bool = False):
     try:
         async with get_pool().acquire() as conn:
             forecast_at = datetime.now()
-            await conn.executemany("""
-                INSERT INTO meteo_prediction_history (forecast_at, "Datetime", 
-                               model_name, corr_diff, corr_sum, temp_out, 
-                               dew_out,winddir, qnh, windspeed, hum_out)
-                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-            """,  [(forecast_at, row['Datetime'], row['model_name'], row['corr_diff'], row['corr_sum'], 
-                row['temp_out'], row['dew_out'], row['winddir'], 
-                row['qnh'], row['windspeed'], row['hum_out']) for row in pred_rows])
-            result = await conn.executemany("""
-                INSERT INTO meteo_prediction ("Datetime", model_name, corr_diff, corr_sum, from_forecast)
-                VALUES ($1, $2, $3, $4, $5)
-                ON CONFLICT ("Datetime", model_name) DO UPDATE SET 
-                    corr_diff = EXCLUDED.corr_diff, 
-                    corr_sum = EXCLUDED.corr_sum
-                WHERE meteo_prediction.from_forecast = TRUE
-            """, [(row['Datetime'], row['model_name'], row['corr_diff'], row['corr_sum'], row['is_forecast']) for row in pred_rows])
+            if overwrite:
+                await conn.executemany("""
+                    INSERT INTO meteo_prediction_history (forecast_at, "Datetime",
+                                model_name, corr_diff, corr_sum, temp_out, 
+                                dew_out,winddir, qnh, windspeed, hum_out)
+                    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+                """,  [(forecast_at, row['Datetime'], row['model_name'], row['corr_diff'], row['corr_sum'], 
+                        row['temp_out'], row['dew_out'], row['winddir'],
+                        row['qnh'], row['windspeed'], row['hum_out']) for row in pred_rows])
+                result = await conn.executemany("""
+                    INSERT INTO meteo_prediction ("Datetime", model_name, corr_diff, corr_sum, from_forecast)
+                    VALUES ($1, $2, $3, $4, $5)
+                    ON CONFLICT ("Datetime", model_name) DO UPDATE SET 
+                        corr_diff = EXCLUDED.corr_diff,
+                        corr_sum = EXCLUDED.corr_sum
+                    """, [(row['Datetime'], row['model_name'], row['corr_diff'], row['corr_sum'], row['is_forecast']) for row in pred_rows])
+            else:
+                await conn.executemany("""
+                    INSERT INTO meteo_prediction_history (forecast_at, "Datetime", 
+                                model_name, corr_diff, corr_sum, temp_out, 
+                                dew_out,winddir, qnh, windspeed, hum_out)
+                    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+                """,  [(forecast_at, row['Datetime'], row['model_name'], row['corr_diff'], row['corr_sum'], 
+                    row['temp_out'], row['dew_out'], row['winddir'], 
+                    row['qnh'], row['windspeed'], row['hum_out']) for row in pred_rows])
+                result = await conn.executemany("""
+                    INSERT INTO meteo_prediction ("Datetime", model_name, corr_diff, corr_sum, from_forecast)
+                    VALUES ($1, $2, $3, $4, $5)
+                    ON CONFLICT ("Datetime", model_name) DO UPDATE SET 
+                        corr_diff = EXCLUDED.corr_diff, 
+                        corr_sum = EXCLUDED.corr_sum
+                    WHERE meteo_prediction.from_forecast = TRUE
+                """, [(row['Datetime'], row['model_name'], row['corr_diff'], row['corr_sum'], row['is_forecast']) for row in pred_rows])
             print(f"Result of insert_prediction: {result}")
     except Exception as e:
         conn.rollback()
         print(f"Chyba při insertu do meteo_prediction: {e}")
         raise e
 
-async def get_prediction(limit: int = 100, offset: int = 0, model_name: str = None):
+async def get_prediction(limit: int = 100, 
+                         offset: int = 0, 
+                         model_names: list[str] = None) -> dict[str, list[dict[str, any]]]:
     try:
         async with get_pool().acquire() as conn:
-            if model_name:
-                return await conn.fetch("""
+            if model_names:
+                placeholders = ', '.join(['$' + str(i+1) for i in range(len(model_names))])
+                result = await conn.fetch(f"""
                     SELECT * FROM meteo_prediction
-                    WHERE model_name = $1
+                    WHERE model_name IN ({placeholders})
                     ORDER BY "Datetime" ASC
-                    LIMIT $2 OFFSET $3
-                """, model_name, limit, offset)
+                    LIMIT ${{len(model_names) + 1}} OFFSET ${{len(model_names) + 2}}
+                """, *model_names, limit, offset)
+                result = [dict(record) for record in result]
+                return {model_name: [record for record in result if record['model_name'] == model_name] for model_name in model_names}
             else:
-                return await conn.fetch("""
+                result = await conn.fetch("""
                     SELECT * FROM meteo_prediction
                     ORDER BY "Datetime" ASC
                     LIMIT $1 OFFSET $2
                 """, limit, offset)
+                result = [dict(record) for record in result]
+                return {str(None): result}
     except Exception as e:
         print(f"Chyba při čtení z meteo_prediction: {e}")
-        return []
-                
-async def get_prediction_by_datetime(Datetime: datetime, model_name: str, offset: int = 0):
+        return {str(None): []}
+    
+async def get_model_names() -> list[str]:
     try:
         async with get_pool().acquire() as conn:
-            return await conn.fetchrow("""
+            records = await conn.fetch("SELECT DISTINCT model_name FROM meteo_prediction")
+            return [record['model_name'] for record in records]
+    except Exception as e:
+        print(f"Chyba při získávání model names z meteo_prediction: {e}")
+        return []
+                
+async def get_prediction_by_datetime(Datetime: datetime, 
+                                     model_names: list[str], 
+                                     offset: int = 0) -> dict[str, dict[str, any]]:
+    try:
+        async with get_pool().acquire() as conn:
+            placeholders = ', '.join(['$' + str(i+1) for i in range(len(model_names))])
+            result = await conn.fetchrow(f"""
                 SELECT * FROM meteo_prediction
-                WHERE "Datetime" = $1 AND model_name = $2 OFFSET $3
-            """, Datetime, model_name, offset)
+                WHERE "Datetime" = $1 AND model_name IN ({placeholders}) OFFSET ${{len(model_names) + 2}}
+            """, Datetime, *model_names, offset)
+            return {model_name: dict(result) for model_name in model_names}
     except Exception as e:
         print(f"Chyba při čtení z meteo_prediction podle Datetime: {e}")
+        return {str(None): {}}
 
-async def get_all_predictions(model_name: str = None):
+async def get_all_predictions(model_names: list[str] = None) -> dict[str, list[dict[str, any]]]:
     try:
-        if model_name:
+        if model_names:
             async with get_pool().acquire() as conn:
-                return await conn.fetch("""
+                placeholders = ', '.join(['$' + str(i+1) for i in range(len(model_names))])
+                result = await conn.fetch(f"""
                     SELECT * FROM meteo_prediction
-                    WHERE model_name = $1
+                    WHERE model_name IN ({placeholders})
                     ORDER BY "Datetime" ASC
-                """, model_name)
+                """, *model_names)
+                result = [dict(record) for record in result]
+            return {model_name: [record for record in result 
+                                 if record['model_name'] == model_name]
+                        for model_name in model_names}
+
         else:
             async with get_pool().acquire() as conn:
-                return await conn.fetch("""
+                result = await conn.fetch("""
                     SELECT * FROM meteo_prediction
                     ORDER BY "Datetime" ASC
                 """)
+            return {"vše": [dict(record) for record in result]}
     except Exception as e:
         print(f"Chyba při čtení z meteo_prediction: {e}")
-
-async def get_prediction_count(model_name: str = None):
+        return {str(None): []}
+    
+async def get_prediction_count(model_names: list[str] = None) -> dict[str, int]:
     try:
         async with get_pool().acquire() as conn:
-            if model_name:
-                result = await conn.fetchrow("SELECT COUNT(*) FROM meteo_prediction WHERE model_name = $1", model_name)
+            if model_names:
+                result = [await conn.fetchrow(f"""
+                    SELECT COUNT(*) FROM meteo_prediction
+                    WHERE model_name IS $1
+                """, model_name) for model_name in model_names]
+                return {model_name: record['count'] for model_name, record in zip(model_names, result)}
             else:
                 result = await conn.fetchrow("SELECT COUNT(*) FROM meteo_prediction")
-            return result['count'] if result else 0
+                return {"vše": result['count']}
     except Exception as e:
         print(f"Chyba při získávání počtu záznamů v meteo_prediction: {e}")
-        return 0
+        return {model_name: 0 for model_name in model_names} if model_names else {str(None): 0}
 
 async def update_prediction(Datetime: datetime, model_name: str, corr_diff: float = None, corr_sum: float = None):
     fields = []

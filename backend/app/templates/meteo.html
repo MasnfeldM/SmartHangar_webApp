@@ -31,24 +31,24 @@
             <div class="rows-select-wrap">
                 <label for="rowsPerPage">Řádků na stránku:</label>
                 <select class="rowsPerPage" name="limit" onchange="goToOffset(0, this)">
-                <option value="5"   {% if limit == 5   %} selected {% endif %}>5</option>
-                <option value="10"  {% if limit == 10  %} selected {% endif %}>10</option>
-                <option value="25"  {% if limit == 25  %} selected {% endif %}>25</option>
-                <option value="50"  {% if limit == 50  %} selected {% endif %}>50</option>
-                <option value="100" {% if limit == 100 %} selected {% endif %}>100</option>
-                <option value="{{ total_count }}" {% if limit == total_count %} selected {% endif %}>Vše</option>
+                    <option value="5"   {% if limit == 5   %} selected {% endif %}>5</option>
+                    <option value="10"  {% if limit == 10  %} selected {% endif %}>10</option>
+                    <option value="25"  {% if limit == 25  %} selected {% endif %}>25</option>
+                    <option value="50"  {% if limit == 50  %} selected {% endif %}>50</option>
+                    <option value="100" {% if limit == 100 %} selected {% endif %}>100</option>
+                    <option value="{{ total_count }}" {% if limit == total_count %} selected {% endif %}>Vše</option>
                 </select>
             </div>
 
             <div class="page-counter">
                 <label>Stránka:</label>
-                <button onclick="goToOffset(0, this)"                        {% if offset <= 0 %} disabled {% endif %}>&#8676;</button>
-                <button onclick="goToOffset({{ offset - limit }}, this)"     {% if offset <= 0 %} disabled {% endif %}>&#8592;</button>
+                <button data-nav="first" onclick="goToOffset(0)">&#8676;</button>
+                <button data-nav="prev"  onclick="goToOffset(currentOffset - currentLimit)">&#8592;</button>
                 <span class="page-display">{{ (offset // limit) + 1 }} / {{ total_pages }}</span>
-                <button onclick="goToOffset({{ offset + limit }}, this)"     {% if offset + limit >= total_count %} disabled {% endif %}>&#8594;</button>
-                <button onclick="goToOffset({{ (total_pages - 1) * limit }}, this)" {% if offset + limit >= total_count %} disabled {% endif %}>&#8677;</button>
+                <button data-nav="next"  onclick="goToOffset(currentOffset + currentLimit)">&#8594;</button>
+                <button data-nav="last"  onclick="goToOffset((totalPages - 1) * currentLimit)">&#8677;</button>
             </div>
-
+        
             <span class="page-info">
                 {{ offset + 1 }}–{{ [offset + limit, total_count] | min }} z {{ total_count }} záznamů
             </span>
@@ -85,22 +85,22 @@
             <div class="rows-select-wrap">
                 <label for="rowsPerPage">Řádků na stránku:</label>
                 <select class="rowsPerPage" name="limit" onchange="goToOffset(0, this)">
-                <option value="5"   {% if limit == 5   %} selected {% endif %}>5</option>
-                <option value="10"  {% if limit == 10  %} selected {% endif %}>10</option>
-                <option value="25"  {% if limit == 25  %} selected {% endif %}>25</option>
-                <option value="50"  {% if limit == 50  %} selected {% endif %}>50</option>
-                <option value="100" {% if limit == 100 %} selected {% endif %}>100</option>
-                <option value="{{ total_count }}" {% if limit == total_count %} selected {% endif %}>Vše</option>
+                    <option value="5"   {% if limit == 5   %} selected {% endif %}>5</option>
+                    <option value="10"  {% if limit == 10  %} selected {% endif %}>10</option>
+                    <option value="25"  {% if limit == 25  %} selected {% endif %}>25</option>
+                    <option value="50"  {% if limit == 50  %} selected {% endif %}>50</option>
+                    <option value="100" {% if limit == 100 %} selected {% endif %}>100</option>
+                    <option value="{{ total_count }}" {% if limit == total_count %} selected {% endif %}>Vše</option>
                 </select>
             </div>
 
             <div class="page-counter">
                 <label>Stránka:</label>
-                <button onclick="goToOffset(0, this)"                        {% if offset <= 0 %} disabled {% endif %}>&#8676;</button>
-                <button onclick="goToOffset({{ offset - limit }}, this)"     {% if offset <= 0 %} disabled {% endif %}>&#8592;</button>
+                <button data-nav="first" onclick="goToOffset(0)">&#8676;</button>
+                <button data-nav="prev"  onclick="goToOffset(currentOffset - currentLimit)">&#8592;</button>
                 <span class="page-display">{{ (offset // limit) + 1 }} / {{ total_pages }}</span>
-                <button onclick="goToOffset({{ offset + limit }}, this)"     {% if offset + limit >= total_count %} disabled {% endif %}>&#8594;</button>
-                <button onclick="goToOffset({{ (total_pages - 1) * limit }}, this)" {% if offset + limit >= total_count %} disabled {% endif %}>&#8677;</button>
+                <button data-nav="next"  onclick="goToOffset(currentOffset + currentLimit)">&#8594;</button>
+                <button data-nav="last"  onclick="goToOffset((totalPages - 1) * currentLimit)">&#8677;</button>
             </div>
 
             <span class="page-info">
@@ -115,24 +115,24 @@
                 <i class="fa fa-search-plus" aria-hidden="true"></i>
             </button>
             <select class="windowSizeInput" name="limit" onchange="goToOffset(0, this)">
-                <option value="5"                {% if limit == 5            %} selected {% endif %}>5</option>
-                <option value="10"               {% if limit == 10           %} selected {% endif %}>10</option>
-                <option value="25"               {% if limit == 25           %} selected {% endif %}>25</option>
-                <option value="50"               {% if limit == 50           %} selected {% endif %}>50</option>
-                <option value="100"              {% if limit == 100          %} selected {% endif %}>100</option>
-                <option value="{{ total_count }}" {% if limit == total_count %} selected {% endif %}>Vše</option>
-            </select>
+                    <option value="5"   {% if limit == 5   %} selected {% endif %}>5</option>
+                    <option value="10"  {% if limit == 10  %} selected {% endif %}>10</option>
+                    <option value="25"  {% if limit == 25  %} selected {% endif %}>25</option>
+                    <option value="50"  {% if limit == 50  %} selected {% endif %}>50</option>
+                    <option value="100" {% if limit == 100 %} selected {% endif %}>100</option>
+                    <option value="{{ total_count }}" {% if limit == total_count %} selected {% endif %}>Vše</option>
+                </select>
             <button onclick="windowSize(true)">
                 <i class="fa fa-search-minus" aria-hidden="true"></i>
             </button>
 
             <div class="page-counter">
                 <label>Stránka:</label>
-                <button onclick="goToOffset(0, this)"                        {% if offset <= 0 %} disabled {% endif %}>&#8676;</button>
-                <button onclick="goToOffset({{ offset - limit }}, this)"     {% if offset <= 0 %} disabled {% endif %}>&#8592;</button>
+                <button data-nav="first" onclick="goToOffset(0)">&#8676;</button>
+                <button data-nav="prev"  onclick="goToOffset(currentOffset - currentLimit)">&#8592;</button>
                 <span class="page-display">{{ (offset // limit) + 1 }} / {{ total_pages }}</span>
-                <button onclick="goToOffset({{ offset + limit }}, this)"     {% if offset + limit >= total_count %} disabled {% endif %}>&#8594;</button>
-                <button onclick="goToOffset({{ (total_pages - 1) * limit }}, this)" {% if offset + limit >= total_count %} disabled {% endif %}>&#8677;</button>
+                <button data-nav="next"  onclick="goToOffset(currentOffset + currentLimit)">&#8594;</button>
+                <button data-nav="last"  onclick="goToOffset((totalPages - 1) * currentLimit)">&#8677;</button>
             </div>
 
             <span class="page-info">
@@ -161,16 +161,22 @@
 <script>
 let currentOffset = {{ offset }};
 let currentLimit  = {{ limit }};
+let totalPages   = {{ total_pages }};
 const totalCount  = {{ total_count }};
 
 async function fetchAndRender(offset, limit) {
-    offset = Math.max(0, Math.min(offset, totalCount - limit));
+    const maxOffset = Math.max(0, (totalPages - 1) * limit);
+    offset = Math.max(0, Math.min(offset, maxOffset));
+    sessionStorage.setItem('meteoOffset', offset);
+    sessionStorage.setItem('meteoLimit', limit);
 
     const res  = await fetch(`/api/meteo?offset=${offset}&limit=${limit}`);
     const json = await res.json();
+    
 
     currentOffset = json.offset;
     currentLimit  = json.limit;
+    totalPages    = json.total_pages;
 
     Object.assign(meteoData, {
         temp:  json.data.map(r => r.temp_out),
@@ -181,6 +187,9 @@ async function fetchAndRender(offset, limit) {
     });
     meteoLabels.length = 0;
     meteoLabels.push(...json.data.map(r => r.Datetime));
+
+    const newMaxOffset = Math.max(0, (totalPages - 1) * currentLimit);
+    currentOffset = Math.min(currentOffset, newMaxOffset);
 
     updatePagination(json.offset, json.limit, json.total_count);
     renderTable(json.data);
@@ -208,19 +217,41 @@ async function goToOffset(offset, trigger) {
 }
 
 async function windowSize(zoom) {
-    const select = document.querySelector('.windowSizeInput');
-    const current = Number(select.value);
     const steps = [5, 10, 25, 50, 100, totalCount];
-    const idx = steps.indexOf(current);
+    const idx = steps.findIndex(s => s >= currentLimit);
+    const safeIdx = idx === -1 ? steps.length - 1 : idx;
 
-    let newIdx;
-    if (zoom) {
-        newIdx = idx < steps.length - 1 ? idx + 1 : idx;
-    } else {
-        newIdx = idx > 0 ? idx - 1 : idx;
-    }
+    const newIdx = zoom
+        ? (safeIdx < steps.length - 1 ? safeIdx + 1 : safeIdx)
+        : (safeIdx > 0 ? safeIdx - 1 : safeIdx);
 
-    await fetchAndRender(0, steps[newIdx]);
+    await fetchAndRender(currentOffset, steps[newIdx]);
+}
+
+function updatePagination(offset, limit, total) {
+    const from    = total === 0 ? 0 : offset + 1;
+    const to      = Math.min(offset + limit, total);
+    const atStart = offset <= 0;
+    const atEnd   = offset + limit >= total;
+
+    document.querySelectorAll('.page-display')
+        .forEach(el => el.textContent = `${Math.floor(offset / limit) + 1} / ${totalPages}`);
+
+    // Info o záznamech
+    document.querySelectorAll('.page-info')
+        .forEach(el => el.textContent = `${from}–${to} z ${total} záznamů`);
+
+    // Disabled stavy tlačítek
+    document.querySelectorAll('[data-nav="first"], [data-nav="prev"]')
+        .forEach(btn => btn.disabled = atStart);
+    document.querySelectorAll('[data-nav="next"], [data-nav="last"]')
+        .forEach(btn => btn.disabled = atEnd);
+
+    // Selecty a inputy
+    document.querySelectorAll('.rowsPerPage')
+        .forEach(el => el.value = limit);
+    document.querySelectorAll('.windowSizeInput')
+        .forEach(el => el.value = limit);
 }
 
 const meteoLabels = {{ data | map(attribute='Datetime') | list | tojson | safe }};
@@ -393,12 +424,34 @@ function toggleMeteo(key) {
     buildMeteoChart();
 }
 
+function renderTable(data) {
+    const tbody = document.querySelector('#viewTable table tbody');
+    tbody.innerHTML = data.map(r => `
+        <tr>
+            <td>${r.Datetime ?? ''}</td>
+            <td>${r.temp_out ?? ''}</td>
+            <td>${r.dew_out ?? ''}</td>
+            <td>${r.winddir ?? ''}</td>
+            <td>${r.qnh ?? ''}</td>
+            <td>${r.windspeed ?? ''}</td>
+            <td>${r.hum_out ?? ''}</td>
+        </tr>
+    `).join('');
+}
+
 // Inicializace
 
-const savedView = localStorage.getItem('meteoView') || 'table';
+const savedView    = localStorage.getItem('meteoView') || 'table';
+const savedOffset  = Number(sessionStorage.getItem('meteoOffset')) || currentOffset;
+const savedLimit   = Number(sessionStorage.getItem('meteoLimit'))  || currentLimit;
+
 setView(savedView);
 
-renderMeteoCards();
-buildMeteoChart();
+if (savedOffset !== currentOffset || savedLimit !== currentLimit) {
+    fetchAndRender(savedOffset, savedLimit);
+} else {
+    renderMeteoCards();
+    buildMeteoChart();
+}
 </script>
 </html>

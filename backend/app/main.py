@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 
+from pyexpat import model
 from wsgiref import headers
 import json
 import pandas as pd
@@ -18,7 +19,7 @@ import asyncpg
 from app.database import init_pool, get_pool, close_pool
 from fastapi import Depends
 from contextlib import asynccontextmanager
-from app.crud import insert_meteo, get_meteo, get_meteo_by_datetime, get_all_meteo, get_meteo_count, insert_prediction, update_meteo, delete_meteo, insert_prediction, get_prediction, get_prediction_by_datetime, get_all_predictions, get_prediction_count, delete_prediction
+from app.crud import insert_meteo, get_meteo, get_meteo_by_datetime, get_all_meteo, get_meteo_count, insert_prediction, update_meteo, delete_meteo, insert_prediction, get_prediction, get_model_names, get_prediction_by_datetime, get_all_predictions, get_prediction_count, delete_prediction
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
 from apscheduler.schedulers.background import BackgroundScheduler
@@ -68,10 +69,19 @@ app.mount("/static", StaticFiles(directory="app/static"), name="static")
 BASE_DIR = Path(__file__).resolve().parent
 meteo_models_path = BASE_DIR / "models" / "meteopipeline"
 
-meteo_models = {
-    p.stem: load_model(str(p.parent/p.stem))
-    for p in meteo_models_path.glob("*.pkl")
-}
+def load_models(path: Path) -> dict[str, object]:
+    models = {}
+    for p in path.glob("*.pkl"):
+        try:
+            model_name = p.stem
+            model = load_model(str(p))
+            models[model_name] = model
+            print(f"✅ Načten model: {model_name}")
+        except Exception as e:
+            print(f"❌ Chyba při načítání modelu {p.stem}: {e}")
+    return models
+
+meteo_models = load_models(meteo_models_path)
 
 
 
@@ -85,6 +95,7 @@ async def index(request: Request,
                 limit: int = 100):
     try:    
         total_count = 0
+        models = await get_model_names()
         if table == "meteo":
             data = await get_meteo(limit=limit, offset=offset)
             total_count = await get_meteo_count()
@@ -95,7 +106,7 @@ async def index(request: Request,
             data = []
         return templates.TemplateResponse("index.html", {
             "request": request,
-            "meteo_models": list(meteo_models.keys()),
+            "meteo_models": models,
             "selected_table": table,
             "selected_model": model,
             "data": data,
@@ -106,9 +117,9 @@ async def index(request: Request,
         })
     except Exception as e:
         return HTMLResponse(
-    content=f"Error: {e}, line: {e.__traceback__.tb_lineno}",
-    status_code=500
-)
+            content=f"Error: {e}, line: {e.__traceback__.tb_lineno}",
+            status_code=500
+        )   
 
 @app.get("/meteo", response_class=HTMLResponse)
 async def meteo_page(
@@ -136,9 +147,27 @@ async def meteo_page(
         })
     except Exception as e:
         return HTMLResponse(
-    content=f"Error: {e}, line: {e.__traceback__.tb_lineno}",
-    status_code=500
-)
+            content=f"Error: {e}, line: {e.__traceback__.tb_lineno}",
+            status_code=500
+        )
+
+@app.get("/api/meteo")
+async def api_meteo(offset: int = 0, limit: int = 25):
+    data = await get_meteo(limit=limit, offset=offset)
+    total = await get_meteo_count()
+    return {
+        "data": [
+            {
+                **dict(row),
+                "Datetime": row["Datetime"].isoformat() if row["Datetime"] else None
+            }
+            for row in data
+        ],
+        "total_count": total,
+        "total_pages": math.ceil(total / limit),
+        "offset": offset,
+        "limit": limit,
+    }
 
 @app.post("/meteo/history")
 async def fetch_historical_meteo(
@@ -179,7 +208,10 @@ async def fetch_historical_meteo(
         await insert_meteo(meteo_rows)
         return {"message": "METAR saved to PostgreSQL", "rows": len(meteo_rows)}
     except Exception as e:
-        return JSONResponse(content={"error": str(e)}, status_code=500)
+        return HTMLResponse(
+            content=f"Error: {e}, line: {e.__traceback__.tb_lineno}",
+            status_code=500
+        )
     
 @app.post("/meteo/forecast")
 async def fetch_forecast_meteo():
@@ -212,7 +244,10 @@ async def fetch_forecast_meteo():
         await insert_meteo(meteo_rows)
         return {"message": "Forecast saved to PostgreSQL", "rows": len(meteo_rows)}
     except Exception as e:
-        return JSONResponse(content={"error": str(e), "line": e.__traceback__.tb_lineno}, status_code=500)
+        return HTMLResponse(
+            content=f"Error: {e}, line: {e.__traceback__.tb_lineno}",
+            status_code=500
+        )
 
 @app.get("/meteo_prediction")
 async def prediction_page(
@@ -221,24 +256,33 @@ async def prediction_page(
     offset: int = 0
 ):
     try:
-        total_count = await get_prediction_count()
+        models = await get_model_names()
+        total_count = await get_prediction_count(model_names=models)
         result = await get_prediction(limit=limit, offset=offset)
-        result = [
-            {
-                **dict(row),
-                "Datetime": row["Datetime"].isoformat() if row["Datetime"] 
-                else None
-            } for row in result
-        ]
+        for model in result:
+            result[model] = [
+                {
+                    **dict(row),
+                    "Datetime": row["Datetime"].isoformat() if row["Datetime"] 
+                    else None
+                } for row in result[model]
+            ]
+        datetimes = []
+        for records in result.values():
+            for row in records:
+                if row["Datetime"] not in datetimes:
+                    datetimes.append(row["Datetime"])
+        result["datetimes"] = datetimes
 
         return templates.TemplateResponse("pred.html", {
             "request": request, 
             "data": result, 
-            "selected_table": "meteo_prediction",
             "offset": offset,
             "limit": limit,
-            "total_pages": math.ceil(total_count / limit) if total_count else 1,
-            "total_count": total_count
+            "total_pages": {model: math.ceil(total_count[model] / limit) 
+                            if total_count else 1 for model in models},
+            "total_count": total_count,
+            "meteo_models": models
         })
     except Exception as e:
         return HTMLResponse(
@@ -246,13 +290,39 @@ async def prediction_page(
             status_code=500
         )
 
+@app.get("/api/meteo_prediction")
+async def api_meteo_prediction(offset: int = 0, limit: int = 25, model_names: list[str] = None):
+    data = await get_prediction(limit=limit, offset=offset, model_names=model_names)
+    for model, records in data.items():
+        data[model] = [
+            {
+                **dict(row),
+                "Datetime": row["Datetime"].isoformat() if row["Datetime"] else None
+            }
+            for row in records
+        ]
+    datetimes = []
+    for records in data.values():
+        for row in records:
+            if row["Datetime"] not in datetimes:
+                datetimes.append(row["Datetime"])
+    data["datetimes"] = datetimes
+    total = await get_prediction_count(model_names=model_names)
+    return {
+        "data": data,
+        "total_count": total,
+        "total_pages": {model: math.ceil(count / limit) 
+                        for model, count in total.items()} 
+                        if isinstance(total, dict) else math.ceil(total / limit),
+        "offset": offset,
+        "limit": limit,
+    }
 
 
-
-async def predict_and_insert(Datetime: list[datetime]):
+async def predict_and_insert(Datetime: list[datetime], overwrite: bool = False):
     try:
         result = await get_meteo_by_datetime(Datetime=Datetime)
-        
+        meteo_models = load_models(meteo_models_path)
         if not result:
             return None
 
@@ -271,13 +341,14 @@ async def predict_and_insert(Datetime: list[datetime]):
             columns=meteo_df.columns
         )
         print(meteo_models.items())
-        for model_name, model in meteo_models.items():
-            last_prediction = await get_prediction_by_datetime(
-                Datetime=Datetime[0],
-                model_name=model_name,
-                offset=1
+        last_predictions = await get_prediction_by_datetime(
+            Datetime=Datetime[0],
+            model_names=list(meteo_models.keys()),
+            offset=1
             )
-            recent_sum = last_prediction[0]["corr_sum"] if last_prediction else 0
+        for model_name, model in meteo_models.items():
+            last_prediction = last_predictions.get(model_name)
+            recent_sum = last_prediction.get("corr_sum", 0) if last_prediction else 0
             pred = predict_model(model, data=meteo_scaled)
 
             corr_diff = pred["prediction_label"]
@@ -298,14 +369,16 @@ async def predict_and_insert(Datetime: list[datetime]):
                     "is_forecast": forecast_status[row]
                 })
             
-            await insert_prediction(pred_rows)
+            await insert_prediction(pred_rows, overwrite=overwrite)
 
     except Exception as e:
-        print(f"❌ Chyba při predikci {Datetime}: {e}")
-        return JSONResponse(content={"error": str(e),"line": e.__traceback__.tb_lineno}, status_code=500)
+        return HTMLResponse(
+            content=f"Error: {e}, line: {e.__traceback__.tb_lineno}",
+            status_code=500
+        )
 
 
-@app.post("/meteo_prediction")
+@app.post("/meteo_prediction/missing")
 async def predict_missing():
     try:
         pool = get_pool()
@@ -327,20 +400,34 @@ async def predict_missing():
         return {"status": "ok", "predicted": len(missing_preds)}
 
     except Exception as e:
-        print(f"❌ Chyba při predikci: {e}")
-        return {"error": str(e)}
+        return HTMLResponse(
+            content=f"Error: {e}, line: {e.__traceback__.tb_lineno}",
+            status_code=500
+        )
     
-@app.get("/api/meteo")
-async def api_meteo(offset: int = 0, limit: int = 25):
-    data = get_meteo(limit=limit, offset=offset)
-    total = get_meteo_count()
-    return {
-        "data": [row.__dict__ for row in data],
-        "total_count": total,
-        "total_pages": math.ceil(total / limit),
-        "offset": offset,
-        "limit": limit,
-    }
+@app.post("/meteo_prediction/all_new")
+async def predict_all_new():
+    try:
+        rows = await get_all_meteo()
+
+        rows = sorted(rows, key=lambda x: x["Datetime"])
+        preds = [row["Datetime"] for row in rows]
+        await predict_and_insert(preds, overwrite=True)
+
+        if preds:
+            print("Prošlo to predict_all_new")
+
+        return {"status": "ok", "predicted": len(preds)}
+
+    except Exception as e:
+        return HTMLResponse(
+            content=f"Error: {e}, line: {e.__traceback__.tb_lineno}",
+            status_code=500
+        )
+
+
+
+
 
 scheduler = BackgroundScheduler()
 scheduler.add_job(print, "interval", seconds=60, args = ["funguji"])  # Testovací úloha pro ověření, že scheduler funguje
