@@ -49,7 +49,7 @@
                 <button data-nav="last"  onclick="goToOffset((totalPages - 1) * currentLimit)">&#8677;</button>
             </div>
         
-            <span class="page-info">
+            <span class="page-info" id="pageInfo">
                 {{ offset + 1 }}–{{ [offset + limit, total_count] | min }} z {{ total_count }} záznamů
             </span>
         </div>
@@ -58,15 +58,15 @@
             <thead>
                 <tr>
                     <th rowspan="2">Datum</th>
-                    { % for model in all_models_names % }
+                    {% for model in all_model_names %}
                     <th colspan="2">{{ model }}</th>
-                    { % endfor % }
+                    {% endfor %}
                 </tr>
                 <tr>
-                    { % for model in all_models_names % }
+                    {% for model in all_model_names %}
                     <th>Sum [&#956;m]</th>
                     <th>Diff [&#956;m]</th>
-                    { % endfor % }
+                    {% endfor %}
                 </tr>
             </thead>
             <tbody id="predTbody"></tbody>
@@ -99,55 +99,87 @@
             </span>
         </div>
     </div>
-    <div id="viewChart" style="display: none;">
-        <div class="window-controls">
-            <label for="windowSizeInput">Velikost okna:</label>
-            <button onclick="windowSize(false)">
-                <i class="fa fa-search-plus" aria-hidden="true"></i>
-            </button>
-            <select class="windowSizeInput" name="limit" onchange="goToOffset(0, this)">
-                    <option value="5"   {% if limit == 5   %} selected {% endif %}>5</option>
-                    <option value="10"  {% if limit == 10  %} selected {% endif %}>10</option>
-                    <option value="25"  {% if limit == 25  %} selected {% endif %}>25</option>
-                    <option value="50"  {% if limit == 50  %} selected {% endif %}>50</option>
-                    <option value="100" {% if limit == 100 %} selected {% endif %}>100</option>
-                    <option value="{{ total_count }}" {% if limit == total_count %} selected {% endif %}>Vše</option>
-                </select>
-            <button onclick="windowSize(true)">
-                <i class="fa fa-search-minus" aria-hidden="true"></i>
-            </button>
+<div id="viewChart" style="display: none;">
+    <div class="window-controls">
+        <label>Velikost okna:</label>
+        <button onclick="windowSize(false)">
+            <i class="fa fa-search-plus" aria-hidden="true"></i>
+        </button>
+        <select class="windowSizeInput" name="limit" onchange="goToOffset(0, this)">
+            <option value="5"   {% if limit == 5   %} selected {% endif %}>5</option>
+            <option value="10"  {% if limit == 10  %} selected {% endif %}>10</option>
+            <option value="25"  {% if limit == 25  %} selected {% endif %}>25</option>
+            <option value="50"  {% if limit == 50  %} selected {% endif %}>50</option>
+            <option value="100" {% if limit == 100 %} selected {% endif %}>100</option>
+            <option value="{{ total_count }}" {% if limit == total_count %} selected {% endif %}>Vše</option>
+        </select>
+        <button onclick="windowSize(true)">
+            <i class="fa fa-search-minus" aria-hidden="true"></i>
+        </button>
 
-            <div class="page-counter">
-                <label>Stránka:</label>
-                <button data-nav="first" onclick="goToOffset(0)">&#8676;</button>
-                <button data-nav="prev"  onclick="goToOffset(currentOffset - currentLimit)">&#8592;</button>
-                <span class="page-display">{{ (offset // limit) + 1 }} / {{ total_pages }}</span>
-                <button data-nav="next"  onclick="goToOffset(currentOffset + currentLimit)">&#8594;</button>
-                <button data-nav="last"  onclick="goToOffset((totalPages - 1) * currentLimit)">&#8677;</button>
-            </div>
-
-            <span class="page-info">
-                {{ offset + 1 }}–{{ [offset + limit, total_count] | min }} z {{ total_count }} záznamů
-            </span>
+        <div class="page-counter">
+            <label>Stránka:</label>
+            <button data-nav="first" onclick="goToOffset(0)">&#8676;</button>
+            <button data-nav="prev"  onclick="goToOffset(currentOffset - currentLimit)">&#8592;</button>
+            <span class="page-display">{{ (offset // limit) + 1 }} / {{ total_pages }}</span>
+            <button data-nav="next"  onclick="goToOffset(currentOffset + currentLimit)">&#8594;</button>
+            <button data-nav="last"  onclick="goToOffset((totalPages - 1) * currentLimit)">&#8677;</button>
         </div>
-        <div class="model-toggles" id="modelToggles"></div>
-        
 
-        <div class="chart-wrapper">
-            <canvas id="sumChart"></canvas>
-            <canvas id="diffChart"></canvas>  
-        </div>
+        <span class="page-info">
+            {{ offset + 1 }}–{{ [offset + limit, total_count] | min }} z {{ total_count }} záznamů
+        </span>
     </div>
+
+    <div class="model-toggles" id="modelToggles"></div>
+
+    <div class="chart-wrapper">
+        <canvas id="sumChart"></canvas>
+    </div>
+    <div class="chart-wrapper">
+        <canvas id="diffChart"></canvas>
+    </div>
+    <div class="window-controls">
+        <label>Velikost okna:</label>
+        <button onclick="windowSize(false)">
+            <i class="fa fa-search-plus" aria-hidden="true"></i>
+        </button>
+        <select class="windowSizeInput" name="limit" onchange="goToOffset(0, this)">
+            <option value="5"   {% if limit == 5   %} selected {% endif %}>5</option>
+            <option value="10"  {% if limit == 10  %} selected {% endif %}>10</option>
+            <option value="25"  {% if limit == 25  %} selected {% endif %}>25</option>
+            <option value="50"  {% if limit == 50  %} selected {% endif %}>50</option>
+            <option value="100" {% if limit == 100 %} selected {% endif %}>100</option>
+            <option value="{{ total_count }}" {% if limit == total_count %} selected {% endif %}>Vše</option>
+        </select>
+        <button onclick="windowSize(true)">
+            <i class="fa fa-search-minus" aria-hidden="true"></i>
+        </button>
+
+        <div class="page-counter">
+            <label>Stránka:</label>
+            <button data-nav="first" onclick="goToOffset(0)">&#8676;</button>
+            <button data-nav="prev"  onclick="goToOffset(currentOffset - currentLimit)">&#8592;</button>
+            <span class="page-display">{{ (offset // limit) + 1 }} / {{ total_pages }}</span>
+            <button data-nav="next"  onclick="goToOffset(currentOffset + currentLimit)">&#8594;</button>
+            <button data-nav="last"  onclick="goToOffset((totalPages - 1) * currentLimit)">&#8677;</button>
+        </div>
+
+        <span class="page-info">
+            {{ offset + 1 }}–{{ [offset + limit, total_count] | min }} z {{ total_count }} záznamů
+        </span>
+    </div>
+</div>
     
 
 </body>
 <script>
 let predData = {{data | tojson | safe }};
-const allModels = {{ all_models_names | tojson | safe }};
+let allModels = {{ all_model_names | tojson | safe }};
 let currentOffset = {{ offset }};
 let currentLimit  = {{ limit }};
 let totalPages   = {{ total_pages }};
-const totalCount  = {{ total_count }};
+let totalCount  = {{ total_count }};
 let allDatetimes = {{ datetimes | list | tojson | safe }};
 
 const MODEL_COLORS = [
@@ -168,17 +200,24 @@ allModels.forEach((m, i) => {
 
 function renderTable() {
     const tbody = document.getElementById('predTbody');
-    tbody.innerHTML = allDatetimes.map(dt => {
-        const cells = allModels.map(m => {
-            const sum = predData[m]?.[dt]?.sum;
-            const diff = predData[m]?.[dt]?.diff;
-            return `
-                <td>${sum !== undefined ? fmt(sum) : '–'}</td>
-                <td>${diff !== undefined ? fmt(diff) : '–'}</td>
+    if (!tbody) return;
+    tbody.innerHTML = '';
+    allDatetimes.forEach(dt => {
+        let row = `<tr>`;
+        row += `<td>${dt}</td>`;
+        allModels.forEach(model => {
+            const modelData = predData[model] || {};
+            const data = modelData[dt] || {};
+            const sum  = data.sum;
+            const diff = data.diff;
+            row += `
+                <td>${sum  != null ? fmt(sum)  : 'N/A'}</td>
+                <td>${diff != null ? fmt(diff) : 'N/A'}</td>
             `;
-        }).join('');
-        return `<tr><td>${dt}</td>${cells}</tr>`;
-    }).join('');
+        });
+        row += `</tr>`;
+        tbody.innerHTML += row;
+    });
 }
 
 function renderModelActiveToggles() {
@@ -337,8 +376,10 @@ async function fetchAndRender(offset, limit) {
     currentLimit  = json.limit;
     totalPages    = json.total_pages;
     allDatetimes = json.datetimes;
+    predData = json.data;
+    totalCount = json.total_count;
 
-    updatePagination(json.offset, json.limit, json.total_count);
+    updatePagination(currentOffset, currentLimit, totalCount);
     renderTable();
     buildCharts();
 }
@@ -367,34 +408,43 @@ async function goToOffset(offset, trigger) {
 }
 
 async function windowSize(zoom) {
-    const steps = [5, 10, 25, 50, 100, totalCount];
-    const idx = steps.findIndex(s => s >= currentLimit);
-    const safeIdx = idx === -1 ? steps.length - 1 : idx;
+    const steps = [...new Set([5, 10, 25, 50, 100, totalCount])];
+    
+    let idx = steps.indexOf(currentLimit);
+    if (idx === -1) {
+        idx = steps.findIndex(s => s > currentLimit);
+        if (idx === -1) idx = steps.length - 1;
+    }
 
     const newIdx = zoom
-        ? (safeIdx < steps.length - 1 ? safeIdx + 1 : safeIdx)
-        : (safeIdx > 0 ? safeIdx - 1 : safeIdx);
+        ? Math.min(idx + 1, steps.length - 1)
+        : Math.max(idx - 1, 0);
 
     await fetchAndRender(currentOffset, steps[newIdx]);
 }
 
 function updatePagination(offset, limit, total) {
-    const maxTotal = total
-        ? Math.max(...Object.values(total), 0)
-        : 0;
+    const maxTotal = typeof total === "object"
+    ? Object.values(total).reduce((a, b) => a + (Number(b) || 0), 0)
+    : (Number(total) || 0);
     const pages = Math.ceil(maxTotal / limit) || 1;
 
     const from    = total === 0 ? 0 : offset + 1;
-    const to      = Math.min(offset + limit, total);
+    const to      = Math.min(offset + limit, maxTotal);
     const atStart = offset <= 0;
-    const atEnd   = offset + limit >= total;
+    const atEnd   = offset + limit >= maxTotal;
+
+    document.querySelectorAll('.rowsPerPage, .windowSizeInput').forEach(select => {
+        const allOption = select.querySelector('option:last-child');
+        if (allOption) allOption.value = total;
+    });
 
     document.querySelectorAll('.page-display')
         .forEach(el => el.textContent = `${Math.floor(offset / limit) + 1} / ${totalPages}`);
 
     // Info o záznamech
     document.querySelectorAll('.page-info')
-        .forEach(el => el.textContent = `${from}–${to} z ${total} záznamů`);
+        .forEach(el => el.textContent = `${from}–${to} z ${maxTotal} záznamů`);
 
     // Disabled stavy tlačítek
     document.querySelectorAll('[data-nav="first"], [data-nav="prev"]')
@@ -418,7 +468,9 @@ function updatePagination(offset, limit, total) {
 
 // Pomocné funkce
 function avg(arr) { return arr.reduce((a,b) => a+b, 0) / arr.length; }
-function fmt(v, d=1) { return (+v).toFixed(d); }
+function fmt(x) {
+    return Number(x).toExponential(3);
+}
 
 
 

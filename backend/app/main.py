@@ -280,7 +280,7 @@ async def prediction_page(
             "datetimes": datetimes,
             "data": models,
             "all_model_names": all_model_names,  
-            "total_count": total,
+            "total_count": total_max,
             "total_pages": math.ceil(total_max / limit) if total_max else 1,
             "offset": offset,
             "limit": limit
@@ -317,16 +317,15 @@ async def api_meteo_prediction(
                     "diff": row["corr_diff"]
                 }
         datetimes = sorted(datetimes_set)
-        total = await get_prediction_count(
-            model_names=model_names
-        )
+        total = await get_prediction_count()
+        total_max = max(total.values()) if total else 0
         return {
             "datetimes": datetimes,
             "data": models,
-            "total_count": total,
+            "total_count": total_max,
             "total_pages": math.ceil(
-                max(total.values()) / limit
-            ) if max(total.values()) > 0 else 1,
+                total_max / limit
+            ) if total_max > 0 else 1,
             "offset": offset,
             "limit": limit
         }
@@ -362,14 +361,14 @@ async def predict_and_insert(Datetime: list[datetime], overwrite: bool = False):
         last_predictions = await get_prediction_by_datetime(
             Datetime=Datetime[0],
             model_names=list(meteo_models.keys()),
-            offset=0
+            offset=-1
             )
         for model_name, model in meteo_models.items():
             last_prediction = last_predictions.get(model_name)
             recent_sum = last_prediction.get("corr_sum", 0) if last_prediction else 0
             pred = predict_model(model, data=meteo_scaled)
 
-            corr_diff = pred["prediction_label"]
+            corr_diff = pred["prediction_label"]*10000
             corr_sum = recent_sum + pd.Series(corr_diff).cumsum()
             pred_rows = []
             for row in range(len(pred)):
@@ -405,7 +404,7 @@ async def predict_missing():
                 SELECT m."Datetime"
                 FROM meteo m
                 WHERE NOT EXISTS (
-                    SELECT 1 FROM meteo_prediction p
+                    SELECT "Datetime" FROM meteo_prediction p
                     WHERE p."Datetime" = m."Datetime"
                 )
                 AND m."Datetime" IS NOT NULL

@@ -94,6 +94,11 @@
     background-color: #bcbbbb;
     border-radius: 3px;
 }
+.model-toggles button.active {
+    background-color: #bcbbbb;
+    border-radius: 3px;
+}
+
 
 .metric-card {
     flex: 1;
