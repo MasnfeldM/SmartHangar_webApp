@@ -238,7 +238,6 @@ async def update_prediction(Datetime: datetime, model_name: str, corr_diff: floa
 
     if not fields:
         return
-
     values.extend([Datetime, model_name])
     try:
         async with get_pool().acquire() as conn:

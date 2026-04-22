@@ -301,6 +301,7 @@ async def api_meteo_prediction(offset: int = 0, limit: int = 25, model_names: li
             }
             for row in records
         ]
+        
     datetimes = []
     for records in data.values():
         for row in records:
