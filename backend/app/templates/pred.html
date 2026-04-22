@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>pred_data</title>
+    <title>pred_prediction</title>
     <link rel="stylesheet" href="{{ url_for('static', path='css/styles.css') }}">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.7.2/css/all.min.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
@@ -49,7 +49,7 @@
                 <button data-nav="last"  onclick="goToOffset((totalPages - 1) * currentLimit)">&#8677;</button>
             </div>
         
-            <span class="page-info">
+            <span class="page-info" id="pageInfo">
                 {{ offset + 1 }}–{{ [offset + limit, total_count] | min }} z {{ total_count }} záznamů
             </span>
         </div>
@@ -57,20 +57,19 @@
         <table border="1">
             <thead>
                 <tr>
-                    <th>Datum</th>
-                    <th>Suma koroze [&#956;m]</th>
-                    <th>Přírůstek koroze [&#956;m]</th>
+                    <th rowspan="2">Datum</th>
+                    {% for model in all_model_names %}
+                    <th colspan="2">{{ model }}</th>
+                    {% endfor %}
+                </tr>
+                <tr>
+                    {% for model in all_model_names %}
+                    <th>Sum [&#956;m]</th>
+                    <th>Diff [&#956;m]</th>
+                    {% endfor %}
                 </tr>
             </thead>
-            <tbody>
-                {% for row in data %}
-                <tr>
-                    <td>{{ row.Datetime }}</td>
-                    <td>{{ row.corr_sum }}</td>
-                    <td>{{ row.corr_diff }}</td>
-                </tr>
-                {% endfor %}
-            </tbody>
+            <tbody id="predTbody"></tbody>
         </table>
         
         <div class="pagination-bar">
@@ -100,88 +99,289 @@
             </span>
         </div>
     </div>
-    <div id="viewChart" style="display: none;">
-        <div class="window-controls">
-            <label for="windowSizeInput">Velikost okna:</label>
-            <button onclick="windowSize(false)">
-                <i class="fa fa-search-plus" aria-hidden="true"></i>
-            </button>
-            <select class="windowSizeInput" name="limit" onchange="goToOffset(0, this)">
-                    <option value="5"   {% if limit == 5   %} selected {% endif %}>5</option>
-                    <option value="10"  {% if limit == 10  %} selected {% endif %}>10</option>
-                    <option value="25"  {% if limit == 25  %} selected {% endif %}>25</option>
-                    <option value="50"  {% if limit == 50  %} selected {% endif %}>50</option>
-                    <option value="100" {% if limit == 100 %} selected {% endif %}>100</option>
-                    <option value="{{ total_count }}" {% if limit == total_count %} selected {% endif %}>Vše</option>
-                </select>
-            <button onclick="windowSize(true)">
-                <i class="fa fa-search-minus" aria-hidden="true"></i>
-            </button>
+<div id="viewChart" style="display: none;">
+    <div class="window-controls">
+        <label>Velikost okna:</label>
+        <button onclick="windowSize(false)">
+            <i class="fa fa-search-plus" aria-hidden="true"></i>
+        </button>
+        <select class="windowSizeInput" name="limit" onchange="goToOffset(0, this)">
+            <option value="5"   {% if limit == 5   %} selected {% endif %}>5</option>
+            <option value="10"  {% if limit == 10  %} selected {% endif %}>10</option>
+            <option value="25"  {% if limit == 25  %} selected {% endif %}>25</option>
+            <option value="50"  {% if limit == 50  %} selected {% endif %}>50</option>
+            <option value="100" {% if limit == 100 %} selected {% endif %}>100</option>
+            <option value="{{ total_count }}" {% if limit == total_count %} selected {% endif %}>Vše</option>
+        </select>
+        <button onclick="windowSize(true)">
+            <i class="fa fa-search-minus" aria-hidden="true"></i>
+        </button>
 
-            <div class="page-counter">
-                <label>Stránka:</label>
-                <button data-nav="first" onclick="goToOffset(0)">&#8676;</button>
-                <button data-nav="prev"  onclick="goToOffset(currentOffset - currentLimit)">&#8592;</button>
-                <span class="page-display">{{ (offset // limit) + 1 }} / {{ total_pages }}</span>
-                <button data-nav="next"  onclick="goToOffset(currentOffset + currentLimit)">&#8594;</button>
-                <button data-nav="last"  onclick="goToOffset((totalPages - 1) * currentLimit)">&#8677;</button>
-            </div>
-
-            <span class="page-info">
-                {{ offset + 1 }}–{{ [offset + limit, total_count] | min }} z {{ total_count }} záznamů
-            </span>
-        </div>
-        <div class="metric-toggles" id="predToggles">
-            <button class="active" data-key="sum" onclick="togglePred('sum')">Suma koroze</button>
-            <button class="active" data-key="diff" onclick="togglePred('diff')">Přírůstek</button>
+        <div class="page-counter">
+            <label>Stránka:</label>
+            <button data-nav="first" onclick="goToOffset(0)">&#8676;</button>
+            <button data-nav="prev"  onclick="goToOffset(currentOffset - currentLimit)">&#8592;</button>
+            <span class="page-display">{{ (offset // limit) + 1 }} / {{ total_pages }}</span>
+            <button data-nav="next"  onclick="goToOffset(currentOffset + currentLimit)">&#8594;</button>
+            <button data-nav="last"  onclick="goToOffset((totalPages - 1) * currentLimit)">&#8677;</button>
         </div>
 
-        <div class="metric-row" id="predCards"></div>
-
-        
-        <div class="chart-wrapper">
-            <canvas id="predChart"></canvas>
-            
-        </div>
-        <div class="chart-tooltip" id="predTooltip"></div>
+        <span class="page-info">
+            {{ offset + 1 }}–{{ [offset + limit, total_count] | min }} z {{ total_count }} záznamů
+        </span>
     </div>
+
+    <div class="model-toggles" id="modelToggles"></div>
+
+    <div class="chart-wrapper">
+        <canvas id="sumChart"></canvas>
+    </div>
+    <div class="chart-wrapper">
+        <canvas id="diffChart"></canvas>
+    </div>
+    <div class="window-controls">
+        <label>Velikost okna:</label>
+        <button onclick="windowSize(false)">
+            <i class="fa fa-search-plus" aria-hidden="true"></i>
+        </button>
+        <select class="windowSizeInput" name="limit" onchange="goToOffset(0, this)">
+            <option value="5"   {% if limit == 5   %} selected {% endif %}>5</option>
+            <option value="10"  {% if limit == 10  %} selected {% endif %}>10</option>
+            <option value="25"  {% if limit == 25  %} selected {% endif %}>25</option>
+            <option value="50"  {% if limit == 50  %} selected {% endif %}>50</option>
+            <option value="100" {% if limit == 100 %} selected {% endif %}>100</option>
+            <option value="{{ total_count }}" {% if limit == total_count %} selected {% endif %}>Vše</option>
+        </select>
+        <button onclick="windowSize(true)">
+            <i class="fa fa-search-minus" aria-hidden="true"></i>
+        </button>
+
+        <div class="page-counter">
+            <label>Stránka:</label>
+            <button data-nav="first" onclick="goToOffset(0)">&#8676;</button>
+            <button data-nav="prev"  onclick="goToOffset(currentOffset - currentLimit)">&#8592;</button>
+            <span class="page-display">{{ (offset // limit) + 1 }} / {{ total_pages }}</span>
+            <button data-nav="next"  onclick="goToOffset(currentOffset + currentLimit)">&#8594;</button>
+            <button data-nav="last"  onclick="goToOffset((totalPages - 1) * currentLimit)">&#8677;</button>
+        </div>
+
+        <span class="page-info">
+            {{ offset + 1 }}–{{ [offset + limit, total_count] | min }} z {{ total_count }} záznamů
+        </span>
+    </div>
+</div>
     
 
 </body>
 <script>
+let predData = {{data | tojson | safe }};
+let allModels = {{ all_model_names | tojson | safe }};
 let currentOffset = {{ offset }};
 let currentLimit  = {{ limit }};
 let totalPages   = {{ total_pages }};
-const totalCount  = {{ total_count }};
+let totalCount  = {{ total_count }};
+let allDatetimes = {{ datetimes | list | tojson | safe }};
+
+const MODEL_COLORS = [
+    '#D85A30', '#378ADD', '#1D9E75', '#BA7517', '#7F77DD',
+    '#E6376A', '#22B5B5', '#8B6914', '#4CAF50', '#FF5722'
+];
+
+function getModelColor(index) {
+    return MODEL_COLORS[index % MODEL_COLORS.length];
+}
+
+const modelColorIndex = {};
+const predActive = {};
+allModels.forEach((m, i) => { 
+    modelColorIndex[m] = i; 
+    predActive[m] = true; 
+});
+
+function renderTable() {
+    const tbody = document.getElementById('predTbody');
+    if (!tbody) return;
+    tbody.innerHTML = '';
+    allDatetimes.forEach(dt => {
+        let row = `<tr>`;
+        row += `<td>${dt}</td>`;
+        allModels.forEach(model => {
+            const modelData = predData[model] || {};
+            const data = modelData[dt] || {};
+            const sum  = data.sum;
+            const diff = data.diff;
+            row += `
+                <td>${sum  != null ? fmt(sum)  : 'N/A'}</td>
+                <td>${diff != null ? fmt(diff) : 'N/A'}</td>
+            `;
+        });
+        row += `</tr>`;
+        tbody.innerHTML += row;
+    });
+}
+
+function renderModelActiveToggles() {
+    const el = document.getElementById('modelToggles');
+    el.innerHTML = allModels.map((m, i) => {
+        const color = getModelColor(i);
+        const active = predActive[m];
+        return `<button class="${active ? 'active' : ''}" data-model="${m}"
+            style="--model-color:${color}"
+            onclick="toggleModelActive('${m}')">
+            <span class="toggle-dot" style="background:${color}"></span>
+            ${m}
+        </button>`;
+    }).join('');
+}
+
+function toggleModelActive(modelName) {
+    predActive[modelName] = !predActive[modelName];
+    renderModelActiveToggles();
+    buildCharts();
+}
+
+let sumChartInst  = null;
+let diffChartInst = null;
+ 
+function buildCharts() {
+    buildSumChart();
+    buildDiffChart();
+}
+
+function buildSumChart() {
+    if (sumChartInst) sumChartInst.destroy();
+ 
+    const gridColor = 'rgba(0,0,0,0.07)';
+    const tickColor = 'rgba(0,0,0,0.45)';
+ 
+    const datasets = Object.entries(predActive)
+        .filter(([,active]) => active)
+        .map(([m]) => {
+            const color = getModelColor(modelColorIndex[m]);
+            return {
+                label: m,
+                data: allDatetimes.map(dt => {
+                    const v = predData[m]?.[dt]?.sum;
+                    return v !== undefined ? v : null;
+                }),
+                borderColor: color,
+                backgroundColor: color + '22',
+                borderWidth: 2,
+                pointRadius: 3,
+                pointHoverRadius: 6,
+                tension: 0.3,
+                fill: false,
+                spanGaps: true,
+            };
+        });
+ 
+    sumChartInst = new Chart(document.getElementById('sumChart'), {
+        type: 'line',
+        data: { labels: allDatetimes, datasets },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: { mode: 'index', intersect: false },
+            plugins: {
+                legend: {
+                    display: true, position: 'bottom', align: 'start',
+                    labels: { usePointStyle: true },
+                    title: { display: true, text: 'Legenda', font: { size: 14 }, position: 'start' }
+                },
+                tooltip: {
+                    enabled: true,
+                    callbacks: {
+                        label(ctx) {
+                            const unit = 'µm';
+                            return `${ctx.dataset.label}: ${ctx.formattedValue} ${unit}`;
+                        }
+                    }
+                }
+            },
+            scales: {
+                x: { ticks: { color: tickColor, maxTicksLimit: 10, font: { size: 11 } }, grid: { color: gridColor } },
+                y: { position: 'left', title: { display: true, text: 'µm', color: tickColor }, ticks: { color: tickColor }, grid: { color: gridColor } }
+            }
+        }
+    });
+}
+ 
+function buildDiffChart() {
+    if (diffChartInst) diffChartInst.destroy();
+ 
+    const gridColor = 'rgba(0,0,0,0.07)';
+    const tickColor = 'rgba(0,0,0,0.45)';
+ 
+    const datasets = Object.entries(predActive)
+        .filter(([,active]) => active)
+        .map(([m]) => {
+            const color = getModelColor(modelColorIndex[m]);
+            return {
+                label: m,
+                data: allDatetimes.map(dt => {
+                    const v = predData[m]?.[dt]?.diff;
+                    return v !== undefined ? v : null;
+                }),
+                backgroundColor: color + 'BB',
+                borderColor: color,
+                borderWidth: 1,
+                borderRadius: 3,
+            };
+        });
+ 
+    diffChartInst = new Chart(document.getElementById('diffChart'), {
+        type: 'bar',
+        data: { labels: allDatetimes, datasets },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            interaction: { mode: 'index', intersect: false },
+            plugins: {
+                legend: {
+                    display: true, position: 'bottom', align: 'start',
+                    labels: { usePointStyle: true },
+                    title: { display: true, text: 'Legenda', font: { size: 14 }, position: 'start' }
+                },
+                tooltip: {
+                    enabled: true,
+                    callbacks: {
+                        label(ctx) {
+                            const unit = 'µm';
+                            return `${ctx.dataset.label}: ${ctx.formattedValue} ${unit}`;
+                        }
+                    }
+                }
+            },
+            scales: {
+                x: { ticks: { color: tickColor, maxTicksLimit: 10, font: { size: 11 } }, grid: { color: gridColor } },
+                y: { position: 'left', title: { display: true, text: 'µm', color: tickColor }, ticks: { color: tickColor }, grid: { color: gridColor } }
+            }
+        }
+    });
+}
 
 async function fetchAndRender(offset, limit) {
     const maxOffset = Math.max(0, (totalPages - 1) * limit);
     offset = Math.max(0, Math.min(offset, maxOffset));
     sessionStorage.setItem('predOffset', offset);
     sessionStorage.setItem('predLimit', limit);
+    const modelParams = Object.keys(predActive).filter(m => predActive[m]).map(m => `model_names=${encodeURIComponent(m)}`).join('&');
 
-    const res  = await fetch(`/api/pred?offset=${offset}&limit=${limit}`);
+    const url = `/api/meteo_prediction?offset=${offset}&limit=${limit}${modelParams ? '&' + modelParams : ''}`
+    const res  = await fetch(url);
     const json = await res.json();
     
 
     currentOffset = json.offset;
     currentLimit  = json.limit;
     totalPages    = json.total_pages;
+    allDatetimes = json.datetimes;
+    predData = json.data;
+    totalCount = json.total_count;
 
-    Object.assign(predData, {
-        sum:  json.data.map(r => r.corr_sum),
-        diff: json.data.map(r => r.corr_diff),
-    });
-    predLabels.length = 0;
-    predLabels.push(...json.data.map(r => r.Datetime)); 
-
-    const newMaxOffset = Math.max(0, (totalPages - 1) * currentLimit);
-    currentOffset = Math.min(currentOffset, newMaxOffset);
-
-    updatePagination(json.offset, json.limit, json.total_count);
-    renderTable(json.data);
-    renderPredCards();
-    buildPredChart();
+    updatePagination(currentOffset, currentLimit, totalCount);
+    renderTable();
+    buildCharts();
 }
 
 function setView(view) {
@@ -192,6 +392,10 @@ function setView(view) {
     document.getElementById('viewChart').style.display = view === 'chart' ? '' : 'none';
 
     localStorage.setItem('predView', view);
+    if (view === 'chart') {
+        renderModelActiveToggles();
+        buildCharts();
+    }
 }
 
 
@@ -204,29 +408,43 @@ async function goToOffset(offset, trigger) {
 }
 
 async function windowSize(zoom) {
-    const steps = [5, 10, 25, 50, 100, totalCount];
-    const idx = steps.findIndex(s => s >= currentLimit);
-    const safeIdx = idx === -1 ? steps.length - 1 : idx;
+    const steps = [...new Set([5, 10, 25, 50, 100, totalCount])];
+    
+    let idx = steps.indexOf(currentLimit);
+    if (idx === -1) {
+        idx = steps.findIndex(s => s > currentLimit);
+        if (idx === -1) idx = steps.length - 1;
+    }
 
     const newIdx = zoom
-        ? (safeIdx < steps.length - 1 ? safeIdx + 1 : safeIdx)
-        : (safeIdx > 0 ? safeIdx - 1 : safeIdx);
+        ? Math.min(idx + 1, steps.length - 1)
+        : Math.max(idx - 1, 0);
 
     await fetchAndRender(currentOffset, steps[newIdx]);
 }
 
 function updatePagination(offset, limit, total) {
+    const maxTotal = typeof total === "object"
+    ? Object.values(total).reduce((a, b) => a + (Number(b) || 0), 0)
+    : (Number(total) || 0);
+    const pages = Math.ceil(maxTotal / limit) || 1;
+
     const from    = total === 0 ? 0 : offset + 1;
-    const to      = Math.min(offset + limit, total);
+    const to      = Math.min(offset + limit, maxTotal);
     const atStart = offset <= 0;
-    const atEnd   = offset + limit >= total;
+    const atEnd   = offset + limit >= maxTotal;
+
+    document.querySelectorAll('.rowsPerPage, .windowSizeInput').forEach(select => {
+        const allOption = select.querySelector('option:last-child');
+        if (allOption) allOption.value = total;
+    });
 
     document.querySelectorAll('.page-display')
         .forEach(el => el.textContent = `${Math.floor(offset / limit) + 1} / ${totalPages}`);
 
     // Info o záznamech
     document.querySelectorAll('.page-info')
-        .forEach(el => el.textContent = `${from}–${to} z ${total} záznamů`);
+        .forEach(el => el.textContent = `${from}–${to} z ${maxTotal} záznamů`);
 
     // Disabled stavy tlačítek
     document.querySelectorAll('[data-nav="first"], [data-nav="prev"]')
@@ -241,195 +459,21 @@ function updatePagination(offset, limit, total) {
         .forEach(el => el.value = limit);
 }
 
-const predLabels = {{ data | map(attribute='Datetime') | list | tojson | safe }};
-const predData = {
-    sum:  {{ data | map(attribute='corr_sum')  | list | tojson | safe }},
-    diff: {{ data | map(attribute='corr_diff') | list | tojson | safe }},
-};
 
 
-const predMeta = {
-    sum:  { label: 'Suma koroze',      unit: 'µm', color: '#D85A30', axis: 'yLeft' },
-    diff: { label: 'Přírůstek koroze', unit: 'µm', color: '#378ADD', axis: 'yRight' },
-};
 
-// Stav: které metriky jsou aktivní
-const predActive = {
-    sum: true,
-    diff: true
-};
+
+
+
 
 // Pomocné funkce
 function avg(arr) { return arr.reduce((a,b) => a+b, 0) / arr.length; }
-function fmt(v, d=1) { return (+v).toFixed(d); }
-
-// Metrické karty
-function renderPredCards() {
-    const el = document.getElementById('predCards');
-    el.innerHTML = Object.entries(predMeta)
-        .filter(([k]) => predActive[k])
-        .map(([k, m]) => {
-            const vals = predData[k].map(Number);
-            const mn = fmt(Math.min(...vals));
-            const mx = fmt(Math.max(...vals));
-            const av = fmt(avg(vals));
-            return `<div class="metric-card">
-                <div class="label">${m.label}</div>
-                <div class="value" style="color:${m.color}">avg. ${av}<span class="unit"> ${m.unit}</span></div>
-                <div class="range">min. ${mn}<span class="unit"> ${m.unit}</span></div> 
-                <div class="range">max. ${mx}<span class="unit"> ${m.unit}</span></div>
-            </div>`;
-        }).join('');
+function fmt(x) {
+    return Number(x).toExponential(3);
 }
 
 
 
-// Sestavení datasetů
-function buildPredDatasets() {
-    return Object.entries(predMeta)
-        .filter(([k]) => predActive[k])
-        .map(([k, m]) => ({
-            label: m.label,
-            data: predData[k].map(Number),
-            borderColor: m.color,
-            backgroundColor: m.color + '22',
-            borderWidth: 2,
-            pointRadius: 3,
-            tension: 0.3,
-            fill: false,
-            yAxisID: m.axis,
-        }));
-}
-
-// Sestavení os Y
-function buildPredScales() {
-
-    const gridColor = 'rgba(0,0,0,0.07)';
-    const tickColor = 'rgba(0,0,0,0.45)';
-
-    return {
-        x: {
-            ticks: { color: tickColor },
-            grid:  { color: gridColor },
-        },
-
-        yLeft: {
-            position: 'left',
-            title: { display: true, text: 'µm' },
-            grid: { color: gridColor }
-        },
-
-        yRight: {
-            position: 'right',
-            title: { display: true, text: 'µm' },
-            grid: { display: false }
-        }
-    };
-}
-
-let predChartInst = null;
-
-function buildPredChart() {
-
-    if (predChartInst) predChartInst.destroy();
-
-    predChartInst = new Chart(
-        document.getElementById('predChart'),
-        {
-            type: 'line',
-
-            data: {
-                labels: predLabels,
-                datasets: buildPredDatasets()
-            },
-
-            options: {
-                responsive: true,
-                interaction: { mode: 'index', intersect: false },
-                scales: buildPredScales()
-            },
-            plugins: {
-                legend: { display: true,
-                        position: 'bottom', 
-                        align: 'start', 
-                        labels: {usePointStyle: true}, 
-                        title: {display: true, text: 'Legenda', font: {size: 14}, position: 'start'} },
-                tooltip: {
-                    enabled: false,
-                    external(ctx) {
-                        const tooltip = ctx.tooltip;
-                        const el = document.getElementById('predTooltip');
-
-                        if (tooltip.opacity === 0) {
-                            el.style.display = 'none';
-                            return;
-                        }
-
-                        const canvasRect = ctx.chart.canvas.getBoundingClientRect();
-
-                        el.style.display = 'block';
-                        el.style.top =
-                            canvasRect.top +
-                            window.pageYOffset +
-                            tooltip.caretY -
-                            10 + 'px';
-
-                        el.innerHTML =
-                            `<div class="tt-date">${tooltip.title[0]}</div>` +
-                            tooltip.dataPoints.map(p => {
-                                const meta = Object.values(predMeta).find(m => m.label === p.dataset.label);
-                                const unit = meta ? meta.unit : '';
-                                return `<div class="tt-row" style="color:${p.dataset.borderColor}">
-                                    ${p.dataset.label}: <strong>${p.formattedValue} ${unit}</strong>
-                                </div>`;
-                            }).join('');
-
-                        // Nejdřív nastav doprava (výchozí)
-                        el.style.left =
-                            canvasRect.left +
-                            window.pageXOffset +
-                            tooltip.caretX +
-                            10 + 'px';
-
-                        // Po překreslení změř skutečnou pozici a flipni pokud přesahuje
-                        requestAnimationFrame(() => {
-                            const ttRect = el.getBoundingClientRect();
-                            if (ttRect.right > window.innerWidth - 8) {
-                                el.style.left =
-                                    canvasRect.left +
-                                    window.pageXOffset +
-                                    tooltip.caretX -
-                                    ttRect.width -
-                                    10 + 'px';
-                            }
-                        });
-                    }
-                }
-            },
-            scales: buildPredScales(),
-        }
-    });
-}
-
-function togglePred(key) {
-    predActive[key] = !predActive[key];
-    // Aktualizuj styl tlačítka
-    document.querySelector(`#predToggles [data-key="${key}"]`)
-        .classList.toggle('active', predActive[key]);
-    renderPredCards();
-    buildPredChart();
-}
-
-function renderTable(data) {
-    const tbody = document.querySelector('#viewTable table tbody');
-    tbody.innerHTML = data.map(r => `
-        <tr>
-            <td>${r.Datetime ?? ''}</td>
-            <td>${r.corr_sum ?? ''}</td>
-            <td>${r.corr_diff ?? ''}</td>
-        </tr>
-    `).join('');
-}
 
 // Inicializace
 
@@ -442,8 +486,7 @@ setView(savedView);
 if (savedOffset !== currentOffset || savedLimit !== currentLimit) {
     fetchAndRender(savedOffset, savedLimit);
 } else {
-    renderPredCards();
-    buildPredChart();
+    buildCharts();
 }
 </script>
 </html>
