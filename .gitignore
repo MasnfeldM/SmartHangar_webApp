@@ -3,3 +3,5 @@ versions/
 *.log
 *.pyc
 *.sql
+.dockerignore
+.gitignore
