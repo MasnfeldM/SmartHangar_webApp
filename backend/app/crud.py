@@ -2,14 +2,24 @@ import os
 import asyncpg
 from app.database import get_pool
 from datetime import datetime
-
+import pandas as pd
+import numpy as np
 
 
 # ==================== METEO ====================
 
-async def insert_meteo(meteo_rows: list[dict]):
+async def insert_meteo(meteo_rows: pd.DataFrame):
     async with get_pool().acquire() as conn:
         try:
+            prev_datetime = await get_prev_datetime(meteo_rows.iloc[0]["Datetime"])
+            prev_row = await get_meteo_by_datetime([prev_datetime]) if prev_datetime else None
+            if prev_row:
+                prev_row = prev_row[0]
+                for col in ["temp_out", "dew_out", "winddir", "qnh", "windspeed", "hum_out"]:
+                    if pd.isna(meteo_rows.iloc[0][col]):
+                        meteo_rows.iloc[0][col] = prev_row[col]
+            meteo_rows = fill_missing_meteo_rows(meteo_rows)
+            
             return await conn.executemany("""
                     INSERT INTO meteo ("Datetime", temp_out, dew_out, winddir, qnh, windspeed, hum_out, is_forecast)
                     VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
@@ -21,7 +31,7 @@ async def insert_meteo(meteo_rows: list[dict]):
                         windspeed = EXCLUDED.windspeed,
                         hum_out = EXCLUDED.hum_out
                     WHERE meteo.is_forecast = TRUE
-                """, [(row["Datetime"], row["temp_out"], row["dew_out"], row["winddir"], row["qnh"], row["windspeed"], row["hum_out"], row["is_forecast"]) for row in meteo_rows])
+                """, [(row["Datetime"], row["temp_out"], row["dew_out"], row["winddir"], row["qnh"], row["windspeed"], row["hum_out"], row["is_forecast"]) for _, row in meteo_rows.iterrows()])
         except Exception as e:
             await conn.execute("ROLLBACK")
             print(f"Chyba při insertu do meteo: {e}")
@@ -43,10 +53,11 @@ async def get_meteo_by_datetime(Datetime: list[datetime], offset: int = 0) -> li
         print(f"Chyba při čtení z meteo podle Datetime: {e}")
         return []
 
-async def get_all_meteo() -> list[asyncpg.Record]:
+async def get_all_meteo() -> list[dict[str, any]]:
     try:
         async with get_pool().acquire() as conn:
-            return await conn.fetch("SELECT * FROM meteo ORDER BY \"Datetime\" ASC")
+            result = await conn.fetch("SELECT * FROM meteo ORDER BY \"Datetime\" ASC")
+            return [dict(record) for record in result]
     except Exception as e:
         print(f"Chyba při čtení z meteo: {e}")
         return []
@@ -136,6 +147,76 @@ async def insert_prediction(pred_rows: list[dict], overwrite: bool = False):
         print(f"Chyba při insertu do meteo_prediction: {e}")
         raise e
 
+def fill_missing_meteo_rows(df: pd.DataFrame) -> pd.DataFrame:
+    df = df.copy()
+
+    # Datetime jako index
+    df["Datetime"] = pd.to_datetime(df["Datetime"], utc=True)
+    df = df.sort_values("Datetime")
+    df = df.set_index("Datetime")
+
+    # Doplnění všech hodin
+    full_index = pd.date_range(
+        start=df.index.min(),
+        end=df.index.max(),
+        freq="1h",
+        tz="UTC"
+    )
+
+    df = df.reindex(full_index)
+
+
+    # Sloupce s lineární interpolací
+    linear_cols = [
+        "temp_out",
+        "dew_out",
+        "qnh",
+        "windspeed",
+        "hum_out"
+    ]
+
+    df[linear_cols] = df[linear_cols].interpolate(
+        method="time",
+        limit_direction="both"
+    )
+
+    # Směr větru jako vektor
+    if "winddir" in df.columns:
+        mask = df["winddir"].notna()
+
+        df.loc[mask, "wind_x"] = np.cos(
+            np.radians(df.loc[mask, "winddir"])
+        )
+        df.loc[mask, "wind_y"] = np.sin(
+            np.radians(df.loc[mask, "winddir"])
+        )
+
+        df[["wind_x", "wind_y"]] = (
+            df[["wind_x", "wind_y"]]
+            .interpolate(method="time")
+            .fillna(method="bfill")
+            .fillna(method="ffill")
+        )
+
+        df["winddir"] = (
+            np.degrees(
+                np.arctan2(
+                    df["wind_y"],
+                    df["wind_x"]
+                )
+            ) + 360
+        ) % 360
+
+        df.drop(
+            columns=["wind_x", "wind_y"],
+            inplace=True
+        )
+
+    df.index.name = "Datetime"
+    df["is_forecast"] = df["is_forecast"].fillna(True)
+
+    return df.reset_index()
+
 async def get_model_names() -> list[str]:
     try:
         async with get_pool().acquire() as conn:
@@ -163,7 +244,7 @@ async def get_prediction(
                 model_names = await get_model_names()
             for model in model_names:
                 query = f"""
-                    SELECT "Datetime", corr_diff, corr_sum
+                    SELECT *
                     FROM meteo_prediction
                     WHERE model_name = $1 AND "Datetime" = ANY($2)
                     ORDER BY "Datetime" ASC
@@ -181,6 +262,20 @@ async def get_prediction(
         )
         return {}
     
+
+async def get_prev_datetime(Datetime: datetime) -> datetime:
+    try:
+        async with get_pool().acquire() as conn:
+            record = await conn.fetchrow("""
+                SELECT UNIQUE "Datetime" FROM meteo_prediction
+                WHERE "Datetime" < $1
+                ORDER BY "Datetime" DESC
+                LIMIT 1
+            """, Datetime)
+            return record["Datetime"] if record else None
+    except Exception as e:
+        print(f"Chyba při čtení předchozího datetime: {e}")
+        return None
 
 async def get_prediction_by_datetime(
     Datetime: datetime,
@@ -230,6 +325,19 @@ async def get_all_predictions(model_names: list[str] = None) -> dict[str, list[d
         print(f"Chyba při čtení z meteo_prediction: {e}")
         return {str(None): []}
     
+async def get_all_predictions_history() -> list[dict[str, any]]:
+    try:
+        async with get_pool().acquire() as conn:
+            result = await conn.fetch("""
+                SELECT * 
+                FROM meteo_prediction_history
+                ORDER BY forecast_at DESC, model_name ASC, "Datetime" ASC
+            """)
+            return [dict(record) for record in result]
+    except Exception as e:
+        print(f"Chyba při čtení z meteo_prediction_history: {e}")
+        return []
+
 async def get_prediction_count(model_names: list[str] = None) -> dict[str, int]:
     try:
         async with get_pool().acquire() as conn:

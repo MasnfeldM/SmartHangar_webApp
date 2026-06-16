@@ -27,6 +27,10 @@
             Graf
         </button>
     </div>
+    <div class="export-btn">
+        <button onclick="downloadFiles()" class="btn">Export CSV</button>
+        <span class="export-info">Exportuje všechna data do dvou CSV souborů (meteo a historie predikcí).</span>
+    </div>
     <div id="viewTable">
         <div class="pagination-bar">
             <div class="rows-select-wrap">
@@ -212,8 +216,8 @@ function renderTable() {
             const sum  = data.sum;
             const diff = data.diff;
             row += `
-                <td>${sum  != null ? fmt(sum)  : 'N/A'}</td>
-                <td>${diff != null ? fmt(diff) : 'N/A'}</td>
+                <td>${sum  != null ? fmt(sum)  : '-'}</td>
+                <td>${diff != null ? fmt(diff) : '-'}</td>
             `;
         });
         row += `</tr>`;
@@ -397,6 +401,9 @@ function setView(view) {
         renderModelActiveToggles();
         buildCharts();
     }
+    else {
+        renderTable();
+    }
 }
 
 
@@ -484,10 +491,36 @@ const savedLimit   = Number(sessionStorage.getItem('predLimit'))  || currentLimi
 
 setView(savedView);
 
+
 if (savedOffset !== currentOffset || savedLimit !== currentLimit) {
     fetchAndRender(savedOffset, savedLimit);
 } else {
     buildCharts();
+}
+
+function downloadFiles() {
+    const res = fetch('/export_csv').then(r => r.json()).then(data => {
+        const meteoBlob = new Blob([data.meteo_csv], { type: 'text/csv' });
+        const predBlob = new Blob([data.prediction_csv], { type: 'text/csv' });
+        const meteoUrl = URL.createObjectURL(meteoBlob);
+        const predUrl = URL.createObjectURL(predBlob);
+        const meteoA = document.createElement('a');
+        const predA = document.createElement('a');
+        const today = new Date().toISOString().split('T')[0].replace(/-/g, '');
+        meteoA.href = meteoUrl;
+        meteoA.download = 'meteo_data_' + today + '.csv';
+        predA.href = predUrl;
+        predA.download = 'prediction_data_' + today + '.csv';
+        document.body.appendChild(meteoA);
+        document.body.appendChild(predA);
+        meteoA.click();
+        predA.click();
+        document.body.removeChild(meteoA);
+        document.body.removeChild(predA);
+        URL.revokeObjectURL(meteoUrl);
+        URL.revokeObjectURL(predUrl);
+    });
+
 }
 </script>
 </html>

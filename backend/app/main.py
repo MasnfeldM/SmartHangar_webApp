@@ -1,5 +1,7 @@
 # -*- coding: utf-8 -*-
 
+from curses import raw
+import io
 from pyexpat import model
 from wsgiref import headers
 import json
@@ -19,7 +21,7 @@ import asyncpg
 from app.database import init_pool, get_pool, close_pool
 from fastapi import Depends
 from contextlib import asynccontextmanager
-from app.crud import insert_meteo, get_meteo, get_meteo_by_datetime, get_all_meteo, get_meteo_count, insert_prediction, update_meteo, delete_meteo, insert_prediction, get_prediction, get_model_names, get_prediction_by_datetime, get_all_predictions, get_prediction_count, delete_prediction
+from app.crud import *
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
@@ -185,10 +187,14 @@ async def fetch_historical_meteo(
         metar.raise_for_status()
 
         data = metar.json()
-        meteo_rows = []
+        meteo_rows = pd.DataFrame(columns=[
+            "Datetime", "temp_out", "dew_out", "winddir", "qnh", "windspeed", "hum_out", "is_forecast"
+        ])
+        meteo_rows.set_index("Datetime", inplace=True)
         for row in data:
-            meteo_row = {
-                "Datetime" : datetime.fromisoformat(row["reportTime"].replace("Z", "+00:00")),
+            datetime_str = datetime.fromisoformat(row["reportTime"].replace("Z", "+00:00"))
+            meteo_row = pd.DataFrame({
+                "Datetime" : datetime_str,
                 "temp_out" : row["temp"],
                 "dew_out" : row["dewp"],
                 "winddir" : row["wdir"] if row["wdir"] != "VRB" else 0,
@@ -196,15 +202,16 @@ async def fetch_historical_meteo(
                 "windspeed" : row["wspd"],
                 "hum_out" : 0,  # Placeholder, will be calculated
                 "is_forecast" : False
-            }
-            meteo_row["hum_out"] = 100 * (math.exp((17.625 * meteo_row["dew_out"]) / 
-                                                   (243.04 + meteo_row["dew_out"])) 
-                                          / math.exp((17.625 * meteo_row["temp_out"]) / 
-                                                     (243.04 + meteo_row["temp_out"])))
-
-            meteo_rows.append(meteo_row)
+            }, index=[datetime_str])
             
-        
+            meteo_row["hum_out"] = 100 * (np.exp((17.625 * meteo_row["dew_out"]) / 
+                                                   (243.04 + meteo_row["dew_out"])) 
+                                          / np.exp((17.625 * meteo_row["temp_out"]) / 
+                                                     (243.04 + meteo_row["temp_out"])))
+            meteo_rows = pd.concat([meteo_rows, meteo_row]) 
+
+        meteo_rows.sort_index(inplace=True)  # Seřazení podle datu a času
+        meteo_rows.reset_index(inplace=True)  # Obnovení indexu pro vkládání do DB
         await insert_meteo(meteo_rows)
         return {"message": "METAR saved to PostgreSQL", "rows": len(meteo_rows)}
     except Exception as e:
@@ -226,7 +233,9 @@ async def fetch_forecast_meteo():
             response.raise_for_status()
             data = response.json()
             
-        meteo_rows = []
+        meteo_rows = pd.DataFrame(columns=[
+            "Datetime", "temp_out", "dew_out", "winddir", "qnh", "windspeed", "hum_out", "is_forecast"
+        ])
         for timepoint in data["properties"]["timeseries"]:
             meteo_row = {
                 "Datetime": datetime.fromisoformat(timepoint["time"].replace("Z", "+00:00")),
@@ -239,7 +248,7 @@ async def fetch_forecast_meteo():
                 "is_forecast": True
             }
 
-            meteo_rows.append(meteo_row)
+            meteo_rows = pd.concat([meteo_rows, pd.DataFrame([meteo_row])], ignore_index=True)
 
         await insert_meteo(meteo_rows)
         return {"message": "Forecast saved to PostgreSQL", "rows": len(meteo_rows)}
@@ -261,17 +270,29 @@ async def prediction_page(
         raw = await get_prediction(limit=limit, offset=offset, model_names=model_names)
         models = {}
         datetimes_set = set()
+        is_forecast_set = dict()
         for model, records in raw.items():
             models[model] = {}
             for row in records:
                 dt = row["Datetime"].isoformat() if row["Datetime"] else None
                 if dt not in datetimes_set:
                     datetimes_set.add(dt)
+                is_forecast = row["is_forecast"] if "is_forecast" in row else False
+                is_forecast_set[dt] = list()
+                is_forecast_set[dt].append(is_forecast) if dt in is_forecast_set else is_forecast_set.setdefault(dt, [is_forecast])
                 models[model][dt] = {
                     "sum": row["corr_sum"],
                     "diff": row["corr_diff"]
                 }
         datetimes = sorted(datetimes_set)
+        for dt in is_forecast_set:
+            if all(is_forecast_set[dt]):
+                is_forecast_set[dt] = True
+            elif not all(is_forecast_set[dt]):
+                is_forecast_set[dt] = False
+            else:
+                raise ValueError(f"Nesrovnalost v is_forecast pro datetime {dt}: {is_forecast_set[dt]}")
+            
         total = await get_prediction_count(model_names=model_names)
         total_max = max(total.values()) if total else 0
 
@@ -283,7 +304,8 @@ async def prediction_page(
             "total_count": total_max,
             "total_pages": math.ceil(total_max / limit) if total_max else 1,
             "offset": offset,
-            "limit": limit
+            "limit": limit,
+            "is_forecast": is_forecast_set
         })
     except Exception as e:
         return HTMLResponse(
@@ -305,19 +327,30 @@ async def api_meteo_prediction(
         )
         models = {}
         datetimes_set = set()
-
+        is_forecast_set = dict()
         for model, records in raw.items():
             models[model] = {}
             for row in records:
                 dt = row["Datetime"].isoformat() if row["Datetime"] else None
                 if dt not in datetimes_set:
                     datetimes_set.add(dt)
+                is_forecast = row["is_forecast"] if "is_forecast" in row else False
+                is_forecast_set[dt] = list()
+                is_forecast_set[dt].append(is_forecast) if dt in is_forecast_set else is_forecast_set.setdefault(dt, [is_forecast])
                 models[model][dt] = {
                     "sum": row["corr_sum"],
                     "diff": row["corr_diff"]
                 }
         datetimes = sorted(datetimes_set)
-        total = await get_prediction_count()
+        for dt in is_forecast_set:
+            if all(is_forecast_set[dt]):
+                is_forecast_set[dt] = True
+            elif not all(is_forecast_set[dt]):
+                is_forecast_set[dt] = False
+            else:
+                raise ValueError(f"Nesrovnalost v is_forecast pro datetime {dt}: {is_forecast_set[dt]}")
+
+        total = await get_prediction_count(model_names=model_names)
         total_max = max(total.values()) if total else 0
         return {
             "datetimes": datetimes,
@@ -327,7 +360,8 @@ async def api_meteo_prediction(
                 total_max / limit
             ) if total_max > 0 else 1,
             "offset": offset,
-            "limit": limit
+            "limit": limit,
+            "is_forecast": is_forecast_set
         }
     except Exception as e:
         return HTMLResponse(
@@ -342,7 +376,7 @@ async def predict_and_insert(Datetime: list[datetime], overwrite: bool = False):
         meteo_models = load_models(meteo_models_path)
         if not result:
             return None
-
+        prev_datetime = await get_prev_datetime(Datetime[0])
         meteo_df = pd.DataFrame([{
             "temp_out": row["temp_out"],
             "dew_out": row["dew_out"],
@@ -352,21 +386,17 @@ async def predict_and_insert(Datetime: list[datetime], overwrite: bool = False):
             "hum_out": row["hum_out"]
         } for row in result])
         forecast_status = [row["is_forecast"] for row in result]
-        scaler = MinMaxScaler()
-        meteo_scaled = pd.DataFrame(
-            scaler.fit_transform(meteo_df),
-            columns=meteo_df.columns
-        )
+
         print(meteo_models.items())
+
         last_predictions = await get_prediction_by_datetime(
-            Datetime=Datetime[0],
-            model_names=list(meteo_models.keys()),
-            offset=-1
+            Datetime=prev_datetime,
+            model_names=list(meteo_models.keys())
             )
         for model_name, model in meteo_models.items():
             last_prediction = last_predictions.get(model_name)
             recent_sum = last_prediction.get("corr_sum", 0) if last_prediction else 0
-            pred = predict_model(model, data=meteo_scaled)
+            pred = predict_model(model, data=meteo_df)
 
             corr_diff = pred["prediction_label"]*10000
             corr_sum = recent_sum + pd.Series(corr_diff).cumsum()
@@ -403,11 +433,11 @@ async def predict_missing():
             rows = await conn.fetch("""
                 SELECT m."Datetime"
                 FROM meteo m
-                WHERE NOT EXISTS (
+                WHERE (NOT EXISTS (
                     SELECT "Datetime" FROM meteo_prediction p
                     WHERE p."Datetime" = m."Datetime"
                 )
-                AND m."Datetime" IS NOT NULL
+                AND m."Datetime" IS NOT NULL) OR m."is_forecast" = TRUE
                 ORDER BY m."Datetime" ASC
             """)
 
@@ -446,6 +476,26 @@ async def predict_all_new():
             status_code=500
         )
 
+@app.get("/export_csv")
+async def export_csv():
+    try:
+        data_meteo = await get_all_meteo()
+        data_pred = await get_all_predictions_history()
+        df_meteo = pd.DataFrame(data_meteo)
+        df_pred = pd.DataFrame(data_pred)
+        meteo_buffer = io.StringIO()
+        pred_buffer = io.StringIO()
+        df_meteo.to_csv(meteo_buffer, index=False)
+        df_pred.to_csv(pred_buffer, index=False)
+        return {
+            "meteo_csv": meteo_buffer.getvalue(),
+            "prediction_csv": pred_buffer.getvalue()
+        }
+    except Exception as e:
+        return HTMLResponse(
+            content=f"Error: {e}, line: {e.__traceback__.tb_lineno}",
+            status_code=500
+        )
 
 
 
