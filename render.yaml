@@ -36,7 +36,7 @@ services:
         value: "User-Agent: MeteoApp/1.0 mansfmat@cvut.cz"
       - key: DB_HOST
         fromDatabase:
-          name: dpg-d8pfcsk8aovs73eh05lg-a
+          name: meteo-postgres
           property: host
 
 databases:
