@@ -31,6 +31,7 @@ import httpx
 DB_NAME = os.getenv("DB_NAME")
 DB_USER = os.getenv("DB_USER")
 DB_PASS = os.getenv("DB_PASSWORD")
+DB_HOST = os.getenv("DB_HOST")
 HISTORY_DATA_API_URL = os.getenv("HISTORY_DATA_API_URL")
 FORECAST_DATA_API_URL = os.getenv("FORECAST_DATA_API_URL")
 KBELY = os.getenv("KBELY")
@@ -49,7 +50,7 @@ app = FastAPI(
 async def lifespan(app: FastAPI):
     # startup
     await init_pool(
-        host="meteo_postgres",
+        host=DB_HOST,
         port=5432,
         user=DB_USER,
         password=DB_PASS,

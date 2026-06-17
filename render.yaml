@@ -34,6 +34,10 @@ services:
         value: "https://api.met.no/weatherapi/locationforecast/2.0/complete"
       - key: FORECAST_HEADER
         value: "User-Agent: MeteoApp/1.0 mansfmat@cvut.cz"
+      - key: DB_HOST
+        fromDatabase:
+          name: dpg-d8pfcsk8aovs73eh05lg-a
+          property: host
 
 databases:
   - name: meteo-postgres
