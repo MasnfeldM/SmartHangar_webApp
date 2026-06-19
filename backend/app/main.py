@@ -87,7 +87,9 @@ def load_models(path: Path) -> dict[str, object]:
 meteo_models = load_models(meteo_models_path)
 
 
-
+@app.get("/ping", response_class=HTMLResponse)
+async def ping():
+    return HTMLResponse(content="OK", status_code=200)
 
 
 @app.get("/", response_class=HTMLResponse)
