@@ -12,13 +12,13 @@ from pathlib import Path
 from datetime import datetime, timedelta, timezone
 from pycaret.regression import load_model, predict_model
 from fastapi import FastAPI, File, UploadFile, Form, Request
-from fastapi.responses import JSONResponse, HTMLResponse
+from fastapi.responses import JSONResponse, HTMLResponse, Response, FileResponse
 import uvicorn
 import requests
 import os
 from sklearn.preprocessing import MinMaxScaler
 import asyncpg
-from app.database import init_pool, get_pool, close_pool
+from app.database import init_pool, init_schema, get_pool, close_pool
 from fastapi import Depends
 from contextlib import asynccontextmanager
 from app.crud import *
@@ -56,6 +56,7 @@ async def lifespan(app: FastAPI):
         password=DB_PASS,
         database=DB_NAME
     )
+    await init_schema()
     yield
     # shutdown
     await close_pool()
@@ -87,9 +88,19 @@ def load_models(path: Path) -> dict[str, object]:
 meteo_models = load_models(meteo_models_path)
 
 
+@app.get("/favicon.ico", include_in_schema=False)
+async def favicon():
+    return FileResponse(BASE_DIR / "static" / "Spaniel_ikona.png")
+
+
 @app.get("/ping", response_class=HTMLResponse)
 async def ping():
     return HTMLResponse(content="OK", status_code=200)
+
+
+@app.head("/meteo", include_in_schema=False)
+async def meteo_head():
+    return Response(status_code=200)
 
 
 @app.get("/", response_class=HTMLResponse)

@@ -6,7 +6,7 @@ services:
     plan: free
     dockerfilePath: ./backend/Dockerfile
     dockerContext: ./backend
-    healthCheckPath: /
+    healthCheckPath: /ping
     envVars:
       - key: PORT
         value: 8000
