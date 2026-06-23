@@ -93,9 +93,9 @@ async def favicon():
     return FileResponse(BASE_DIR / "static" / "Spaniel_ikona.png")
 
 
-@app.get("/ping", response_class=HTMLResponse)
+@app.get("/ping")
 async def ping():
-    return HTMLResponse(content="OK", status_code=200)
+    return Response(status_code=200)
 
 
 @app.head("/meteo", include_in_schema=False)
