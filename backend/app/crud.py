@@ -267,7 +267,7 @@ async def get_prev_datetime(Datetime: datetime) -> datetime:
     try:
         async with get_pool().acquire() as conn:
             record = await conn.fetchrow("""
-                SELECT UNIQUE "Datetime" FROM meteo_prediction
+                SELECT DISTINCT "Datetime" FROM meteo_prediction
                 WHERE "Datetime" < $1
                 ORDER BY "Datetime" DESC
                 LIMIT 1
