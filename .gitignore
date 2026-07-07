@@ -5,3 +5,4 @@ versions/
 *.sql
 .dockerignore
 .gitignore
+render.yaml
