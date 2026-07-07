@@ -106,27 +106,11 @@ async def favicon():
 
 import asyncio
 
-@app.get("/debug")
-async def debug():
-    return {
-        "loop": id(asyncio.get_running_loop()),
-        "scheduler_running": scheduler.running,
-    }
 
-@app.get("/jobs")
-async def jobs():
-    return [
-        {
-            "id": job.id,
-            "next_run": str(job.next_run_time),
-            "trigger": str(job.trigger),
-        }
-        for job in scheduler.get_jobs()
-    ]
 
 def listener(event):
     print(
-        f"Job {event.job_id} (trigger {event.trigger}, output={event.retval}) executed at {datetime.now()} exception={event.exception}",
+        f"Job {event.job_id} (output={event.retval}) executed at {datetime.now()} exception={event.exception}",
         flush=True
     )
 
