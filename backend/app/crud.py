@@ -1,4 +1,5 @@
 import os
+import traceback
 import asyncpg
 from app.database import get_pool
 from datetime import datetime
@@ -33,8 +34,11 @@ async def insert_meteo(meteo_rows: pd.DataFrame):
                     WHERE meteo.is_forecast = TRUE
                 """, [(row["Datetime"], row["temp_out"], row["dew_out"], row["winddir"], row["qnh"], row["windspeed"], row["hum_out"], row["is_forecast"]) for _, row in meteo_rows.iterrows()])
         except Exception as e:
-            await conn.execute("ROLLBACK")
-            print(f"Chyba při insertu do meteo: {e}")
+            print("Typ:", type(e))
+            print("Repr:", repr(e))
+            print("Args:", e.args)
+            print(traceback.format_exc())
+            raise e
 
 async def get_meteo(limit: int = 100, offset: int = 0) -> list[asyncpg.Record]:
     try:
@@ -43,7 +47,7 @@ async def get_meteo(limit: int = 100, offset: int = 0) -> list[asyncpg.Record]:
             
     except Exception as e:
         print(f"Chyba při čtení z meteo: {e}")
-        return []
+        raise e
 
 async def get_meteo_by_datetime(Datetime: list[datetime], offset: int = 0) -> list[asyncpg.Record]:
     try:
@@ -51,7 +55,7 @@ async def get_meteo_by_datetime(Datetime: list[datetime], offset: int = 0) -> li
             return await conn.fetch("SELECT * FROM meteo WHERE \"Datetime\" = ANY($1) ORDER BY \"Datetime\" ASC OFFSET $2", Datetime, offset)
     except Exception as e:
         print(f"Chyba při čtení z meteo podle Datetime: {e}")
-        return []
+        raise e
 
 async def get_all_meteo() -> list[dict[str, any]]:
     try:
@@ -60,7 +64,7 @@ async def get_all_meteo() -> list[dict[str, any]]:
             return [dict(record) for record in result]
     except Exception as e:
         print(f"Chyba při čtení z meteo: {e}")
-        return []
+        raise e
 
 async def get_meteo_count() -> int:
     try:
@@ -69,7 +73,7 @@ async def get_meteo_count() -> int:
             return result['total'] if result else 0
     except Exception as e:
         print(f"Chyba při získávání počtu záznamů v meteo: {e}")
-        return 0
+        raise e
 
 async def update_meteo(Datetime: datetime, temp_out: float = None, dew_out: float = None,
                        winddir: float = None, qnh: float = None, windspeed: float = None,
@@ -93,13 +97,15 @@ async def update_meteo(Datetime: datetime, temp_out: float = None, dew_out: floa
             )
     except Exception as e:
         print(f"Chyba při update meteo: {e}")
- 
+        raise e
+    
 async def delete_meteo():
     try:
         async with get_pool().acquire() as conn:
             await conn.execute('DELETE FROM meteo')
     except Exception as e:
         print(f"Chyba při delete z meteo: {e}")
+        raise e
 
 
 # ==================== METEO PREDICTION ====================
@@ -143,15 +149,17 @@ async def insert_prediction(pred_rows: list[dict], overwrite: bool = False):
                 """, [(row['Datetime'], row['model_name'], row['corr_diff'], row['corr_sum'], row['is_forecast']) for row in pred_rows])
             print(f"Result of insert_prediction: {result}")
     except Exception as e:
-        conn.rollback()
+        
         print(f"Chyba při insertu do meteo_prediction: {e}")
         raise e
 
 def fill_missing_meteo_rows(df: pd.DataFrame) -> pd.DataFrame:
     df = df.copy()
+    
 
     # Datetime jako index
-    df["Datetime"] = pd.to_datetime(df["Datetime"], utc=True)
+    if not pd.api.types.is_datetime64tz_dtype(df["Datetime"]):
+        df["Datetime"] = pd.to_datetime(df["Datetime"], utc=True)
     df = df.sort_values("Datetime")
     df = df.set_index("Datetime")
 
@@ -184,12 +192,16 @@ def fill_missing_meteo_rows(df: pd.DataFrame) -> pd.DataFrame:
     if "winddir" in df.columns:
         mask = df["winddir"].notna()
 
-        df.loc[mask, "wind_x"] = np.cos(
-            np.radians(df.loc[mask, "winddir"])
-        )
-        df.loc[mask, "wind_y"] = np.sin(
-            np.radians(df.loc[mask, "winddir"])
-        )
+        #df.loc[mask, "wind_x"] = np.cos(
+        #    np.radians(df.loc[mask, "winddir"])
+        #)
+        #df.loc[mask, "wind_y"] = np.sin(
+        #    np.radians(df.loc[mask, "winddir"])
+        #)
+        wind = df.loc[mask, "winddir"].astype(float)
+
+        df.loc[mask, "wind_x"] = np.cos(np.radians(wind))
+        df.loc[mask, "wind_y"] = np.sin(np.radians(wind))
 
         df[["wind_x", "wind_y"]] = (
             df[["wind_x", "wind_y"]]
@@ -224,7 +236,7 @@ async def get_model_names() -> list[str]:
             return [record['model_name'] for record in records]
     except Exception as e:
         print(f"Chyba při získávání model names z meteo_prediction: {e}")
-        return []
+        raise e
                 
 
 async def get_prediction(
@@ -260,7 +272,7 @@ async def get_prediction(
         print(
             f"Chyba při čtení z meteo_prediction: {e}"
         )
-        return {}
+        raise e
     
 
 async def get_prev_datetime(Datetime: datetime) -> datetime:
@@ -275,7 +287,7 @@ async def get_prev_datetime(Datetime: datetime) -> datetime:
             return record["Datetime"] if record else None
     except Exception as e:
         print(f"Chyba při čtení předchozího datetime: {e}")
-        return None
+        raise e
 
 async def get_prediction_by_datetime(
     Datetime: datetime,
@@ -297,7 +309,7 @@ async def get_prediction_by_datetime(
             return {m: result_map.get(m, {}) for m in model_names}
     except Exception as e:
         print(f"Chyba při čtení z meteo_prediction podle Datetime: {e}")
-        return {m: {} for m in model_names}
+        raise e
 
 async def get_all_predictions(model_names: list[str] = None) -> dict[str, list[dict[str, any]]]:
     try:
@@ -323,8 +335,8 @@ async def get_all_predictions(model_names: list[str] = None) -> dict[str, list[d
             return {"vše": [dict(record) for record in result]}
     except Exception as e:
         print(f"Chyba při čtení z meteo_prediction: {e}")
-        return {str(None): []}
-    
+        raise e
+
 async def get_all_predictions_history() -> list[dict[str, any]]:
     try:
         async with get_pool().acquire() as conn:
@@ -336,7 +348,7 @@ async def get_all_predictions_history() -> list[dict[str, any]]:
             return [dict(record) for record in result]
     except Exception as e:
         print(f"Chyba při čtení z meteo_prediction_history: {e}")
-        return []
+        raise e
 
 async def get_prediction_count(model_names: list[str] = None) -> dict[str, int]:
     try:
@@ -358,7 +370,7 @@ async def get_prediction_count(model_names: list[str] = None) -> dict[str, int]:
                 return {"vše": result['total'] if result else 0}
     except Exception as e:
         print(f"Chyba při získávání počtu záznamů v meteo_prediction: {e}")
-        return {m: 0 for m in model_names} if model_names else {"vše": 0}
+        raise e
 
 async def update_prediction(Datetime: datetime, model_name: str,
                             corr_diff: float = None, corr_sum: float = None):
@@ -382,7 +394,8 @@ async def update_prediction(Datetime: datetime, model_name: str,
             )
     except Exception as e:
         print(f"Chyba při update meteo_prediction: {e}")
- 
+        raise e
+
 async def delete_prediction(model_name: str = None):
     try:
         async with get_pool().acquire() as conn:
@@ -395,3 +408,4 @@ async def delete_prediction(model_name: str = None):
                 await conn.execute("DELETE FROM meteo_prediction")
     except Exception as e:
         print(f"Chyba při delete z meteo_prediction: {e}")
+        raise e

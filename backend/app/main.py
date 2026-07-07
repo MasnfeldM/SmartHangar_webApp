@@ -26,6 +26,8 @@ from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 import httpx
+from zoneinfo import ZoneInfo
+from apscheduler.events import EVENT_JOB_EXECUTED, EVENT_JOB_ERROR
 
 
 DB_NAME = os.getenv("DB_NAME")
@@ -40,11 +42,7 @@ lat, lon, altitude = float(lat), float(lon), int(altitude)
 FORECAST_HEADER = dict(item.split(": ") for item in os.getenv("FORECAST_HEADER").split(","))
 
 
-app = FastAPI(
-    title="Meteo Backend"
-)
-
-
+scheduler = AsyncIOScheduler(timezone=ZoneInfo("Europe/Prague"))
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -57,13 +55,27 @@ async def lifespan(app: FastAPI):
         database=DB_NAME
     )
     await init_schema()
+    
+    scheduler.add_job(print, "interval", hours=1, args = ["funguji"])  # Testovací úloha pro ověření, že scheduler funguje
+    scheduler.add_job(fetch_historical_meteo, "cron", hour=0, args = [1])
+    scheduler.add_job(fetch_forecast_meteo, "cron", hour=0, minute=5)
+    scheduler.add_job(predict_missing, "cron", hour=0, minute=10)
+    scheduler.start()
+    print("Scheduler running:", scheduler.running)
+    for job in scheduler.get_jobs():
+        print(job.id)
+        print(job.trigger)
     yield
     # shutdown
+    scheduler.shutdown()
     await close_pool()
 
 
 
-app = FastAPI(lifespan=lifespan)
+
+
+
+app = FastAPI(lifespan=lifespan, title="meteo backend")
 
 templates = Jinja2Templates(directory="app/templates")
 templates.env.filters["tojson"] = json.dumps
@@ -92,6 +104,33 @@ meteo_models = load_models(meteo_models_path)
 async def favicon():
     return FileResponse(BASE_DIR / "static" / "Spaniel_ikona.png")
 
+import asyncio
+
+@app.get("/debug")
+async def debug():
+    return {
+        "loop": id(asyncio.get_running_loop()),
+        "scheduler_running": scheduler.running,
+    }
+
+@app.get("/jobs")
+async def jobs():
+    return [
+        {
+            "id": job.id,
+            "next_run": str(job.next_run_time),
+            "trigger": str(job.trigger),
+        }
+        for job in scheduler.get_jobs()
+    ]
+
+def listener(event):
+    print(
+        f"Job {event.job_id} (trigger {event.trigger}) executed at {datetime.now()} exception={event.exception}",
+        flush=True
+    )
+
+scheduler.add_listener(listener, EVENT_JOB_EXECUTED | EVENT_JOB_ERROR)
 
 @app.get("/ping")
 async def ping():
@@ -197,10 +236,11 @@ async def fetch_historical_meteo(
             "taf": "false",
             "hours": str(hours)
         }
-        metar = requests.get(HISTORY_DATA_API_URL, params=params)
-        metar.raise_for_status()
-
-        data = metar.json()
+        async with httpx.AsyncClient() as client:
+            response = await client.get(HISTORY_DATA_API_URL, params=params)
+            response.raise_for_status()
+            data = response.json()
+        
         meteo_rows = pd.DataFrame(columns=[
             "Datetime", "temp_out", "dew_out", "winddir", "qnh", "windspeed", "hum_out", "is_forecast"
         ])
@@ -514,12 +554,8 @@ async def export_csv():
 
 
 
-scheduler = AsyncIOScheduler()
-scheduler.add_job(print, "interval", seconds=60, args = ["funguji"])  # Testovací úloha pro ověření, že scheduler funguje
-scheduler.add_job(fetch_historical_meteo, "cron", hour=0, args = [1])
-scheduler.add_job(fetch_forecast_meteo, "cron", hour=0, minute=5)
-scheduler.add_job(predict_missing, "cron", hour=0, minute=10)
-scheduler.start()
+
+
 
 
 # Spuštění aplikace
