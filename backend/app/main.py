@@ -126,7 +126,7 @@ async def jobs():
 
 def listener(event):
     print(
-        f"Job {event.job_id} (trigger {event.trigger}) executed at {datetime.now()} exception={event.exception}",
+        f"Job {event.job_id} (trigger {event.trigger}, output={event.retval}) executed at {datetime.now()} exception={event.exception}",
         flush=True
     )
 
