@@ -11,6 +11,12 @@
 </head>
 <body>
     <h1>Meteorologická Data</h1>
+    <div class="navigation">
+        <h2>Rozcestník</h2>
+        <button class="nav-link" onclick="window.location.href='{{ url_for('index') }}'">Domů</button>
+        <button class="nav-link" onclick="window.location.href='{{ url_for('meteo_page') }}'">Meteo data</button>
+        <button class="nav-link" onclick="window.location.href='{{ url_for('prediction_page') }}'">Data predikce</button>
+    </div>
     <div class="view-toggle">
         <button class="view-btn active" id="btnTable" onclick="setView('table')" {% if view == 'table' %}disabled{% endif %}>
             <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">

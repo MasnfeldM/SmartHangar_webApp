@@ -128,31 +128,11 @@ async def meteo_head():
 
 @app.get("/", response_class=HTMLResponse)
 async def index(request: Request, 
-                table: str = None, 
-                model: str = None, 
-                offset: int = 0, 
-                limit: int = 100):
+                ):
     try:    
-        total_count = 0
-        models = await get_model_names()
-        if table == "meteo":
-            data = await get_meteo(limit=limit, offset=offset)
-            total_count = await get_meteo_count()
-        elif table == "meteo_prediction":
-            data = await get_prediction(limit=limit, offset=offset, model_name=model) if model != "None" else await get_prediction(limit=limit, offset=offset)
-            total_count = await get_prediction_count(model_name=model) if model != "None" else await get_prediction_count()
-        else:
-            data = []
+        
         return templates.TemplateResponse("index.html", {
-            "request": request,
-            "meteo_models": models,
-            "selected_table": table,
-            "selected_model": model,
-            "data": data,
-            "offset": offset,
-            "limit": limit,
-            "total_pages": math.ceil(total_count / limit) if total_count else 1,
-            "total_count": total_count
+           "request": request 
         })
     except Exception as e:
         return HTMLResponse(
