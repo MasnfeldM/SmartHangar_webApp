@@ -143,26 +143,10 @@ async def index(request: Request,
 @app.get("/meteo", response_class=HTMLResponse)
 async def meteo_page(
     request: Request,
-    limit: int = 100,
-    offset: int = 0
 ):
     try:
-        total_count = await get_meteo_count()
-        result = await get_meteo(limit=limit, offset=offset)
-        result = [
-            {
-                **dict(row),
-                "Datetime": row["Datetime"].isoformat() if row["Datetime"] else None
-            }
-            for row in result
-        ]
         return templates.TemplateResponse("meteo.html", {
             "request": request, 
-            "data": result, 
-            "offset": offset,
-            "limit": limit,
-            "total_pages": math.ceil(total_count / limit) if total_count else 1,
-            "total_count": total_count
         })
     except Exception as e:
         return HTMLResponse(
@@ -279,51 +263,12 @@ async def fetch_forecast_meteo():
 @app.get("/meteo_prediction", response_class=HTMLResponse)
 async def prediction_page(
     request: Request,
-    limit: int = 100,
-    offset: int = 0,
-    model_names: list[str] = None
 ):
     try:
         all_model_names = await get_model_names()
-        raw = await get_prediction(limit=limit, offset=offset, model_names=model_names)
-        models = {}
-        datetimes_set = set()
-        is_forecast_set = dict()
-        for model, records in raw.items():
-            models[model] = {}
-            for row in records:
-                dt = row["Datetime"].isoformat() if row["Datetime"] else None
-                if dt not in datetimes_set:
-                    datetimes_set.add(dt)
-                is_forecast = row["is_forecast"] if "is_forecast" in row else False
-                is_forecast_set[dt] = list()
-                is_forecast_set[dt].append(is_forecast) if dt in is_forecast_set else is_forecast_set.setdefault(dt, [is_forecast])
-                models[model][dt] = {
-                    "sum": row["corr_sum"],
-                    "diff": row["corr_diff"]
-                }
-        datetimes = sorted(datetimes_set)
-        for dt in is_forecast_set:
-            if all(is_forecast_set[dt]):
-                is_forecast_set[dt] = True
-            elif not all(is_forecast_set[dt]):
-                is_forecast_set[dt] = False
-            else:
-                raise ValueError(f"Nesrovnalost v is_forecast pro datetime {dt}: {is_forecast_set[dt]}")
-            
-        total = await get_prediction_count(model_names=model_names)
-        total_max = max(total.values()) if total else 0
-
         return templates.TemplateResponse("pred.html", {
             "request": request,
-            "datetimes": datetimes,
-            "data": models,
             "all_model_names": all_model_names,  
-            "total_count": total_max,
-            "total_pages": math.ceil(total_max / limit) if total_max else 1,
-            "offset": offset,
-            "limit": limit,
-            "is_forecast": is_forecast_set
         })
     except Exception as e:
         return HTMLResponse(
@@ -338,6 +283,7 @@ async def api_meteo_prediction(
     model_names: list[str] = None
 ):
     try:
+        all_model_names = await get_model_names()
         raw = await get_prediction(
             limit=limit,
             offset=offset,
@@ -371,6 +317,7 @@ async def api_meteo_prediction(
         total = await get_prediction_count(model_names=model_names)
         total_max = max(total.values()) if total else 0
         return {
+            "all_model_names": all_model_names,
             "datetimes": datetimes,
             "data": models,
             "total_count": total_max,

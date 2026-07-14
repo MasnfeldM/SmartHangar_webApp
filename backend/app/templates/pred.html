@@ -41,13 +41,13 @@
         <div class="pagination-bar">
             <div class="rows-select-wrap">
                 <label for="rowsPerPage">Řádků na stránku:</label>
-                <select class="rowsPerPage" name="limit" onchange="goToOffset(0, this)">
+                <select class="rowsPerPage" id="rowsPerPage" name="limit" onchange="goToOffset(0, this)">
                     <option value="5"   {% if limit == 5   %} selected {% endif %}>5</option>
                     <option value="10"  {% if limit == 10  %} selected {% endif %}>10</option>
                     <option value="25"  {% if limit == 25  %} selected {% endif %}>25</option>
                     <option value="50"  {% if limit == 50  %} selected {% endif %}>50</option>
                     <option value="100" {% if limit == 100 %} selected {% endif %}>100</option>
-                    <option value="{{ total_count }}" {% if limit == total_count %} selected {% endif %}>Vše</option>
+                    <option value="" {% if limit == total_count %} selected {% endif %}>Vše</option>
                 </select>
             </div>
 
@@ -55,14 +55,12 @@
                 <label>Stránka:</label>
                 <button data-nav="first" onclick="goToOffset(0)">&#8676;</button>
                 <button data-nav="prev"  onclick="goToOffset(currentOffset - currentLimit)">&#8592;</button>
-                <span class="page-display">{{ (offset // limit) + 1 }} / {{ total_pages }}</span>
+                <span class="page-display" id="pageDisplay"></span>
                 <button data-nav="next"  onclick="goToOffset(currentOffset + currentLimit)">&#8594;</button>
                 <button data-nav="last"  onclick="goToOffset((totalPages - 1) * currentLimit)">&#8677;</button>
             </div>
         
-            <span class="page-info" id="pageInfo">
-                {{ offset + 1 }}–{{ [offset + limit, total_count] | min }} z {{ total_count }} záznamů
-            </span>
+            <span class="page-info" id="pageInfo"></span>
         </div>
 
         <table border="1">
@@ -92,7 +90,7 @@
                     <option value="25"  {% if limit == 25  %} selected {% endif %}>25</option>
                     <option value="50"  {% if limit == 50  %} selected {% endif %}>50</option>
                     <option value="100" {% if limit == 100 %} selected {% endif %}>100</option>
-                    <option value="{{ total_count }}" {% if limit == total_count %} selected {% endif %}>Vše</option>
+                    <option value=""   {% if limit == totalCount %} selected {% endif %}>Vše</option>
                 </select>
             </div>
 
@@ -100,14 +98,12 @@
                 <label>Stránka:</label>
                 <button data-nav="first" onclick="goToOffset(0)">&#8676;</button>
                 <button data-nav="prev"  onclick="goToOffset(currentOffset - currentLimit)">&#8592;</button>
-                <span class="page-display">{{ (offset // limit) + 1 }} / {{ total_pages }}</span>
+                <span class="page-display" id="pageDisplay"></span>
                 <button data-nav="next"  onclick="goToOffset(currentOffset + currentLimit)">&#8594;</button>
                 <button data-nav="last"  onclick="goToOffset((totalPages - 1) * currentLimit)">&#8677;</button>
             </div>
 
-            <span class="page-info">
-                {{ offset + 1 }}–{{ [offset + limit, total_count] | min }} z {{ total_count }} záznamů
-            </span>
+            <span class="page-info" id="pageInfo"></span>
         </div>
     </div>
 <div id="viewChart" style="display: none;">
@@ -116,13 +112,13 @@
         <button onclick="windowSize(false)">
             <i class="fa fa-search-plus" aria-hidden="true"></i>
         </button>
-        <select class="windowSizeInput" name="limit" onchange="goToOffset(0, this)">
+        <select class="windowSizeInput" id="windowSizeInput" name="limit" onchange="goToOffset(0, this)">
             <option value="5"   {% if limit == 5   %} selected {% endif %}>5</option>
             <option value="10"  {% if limit == 10  %} selected {% endif %}>10</option>
             <option value="25"  {% if limit == 25  %} selected {% endif %}>25</option>
             <option value="50"  {% if limit == 50  %} selected {% endif %}>50</option>
             <option value="100" {% if limit == 100 %} selected {% endif %}>100</option>
-            <option value="{{ total_count }}" {% if limit == total_count %} selected {% endif %}>Vše</option>
+            <option value=""   {% if limit == totalCount %} selected {% endif %}>Vše</option>
         </select>
         <button onclick="windowSize(true)">
             <i class="fa fa-search-minus" aria-hidden="true"></i>
@@ -132,21 +128,18 @@
             <label>Stránka:</label>
             <button data-nav="first" onclick="goToOffset(0)">&#8676;</button>
             <button data-nav="prev"  onclick="goToOffset(currentOffset - currentLimit)">&#8592;</button>
-            <span class="page-display">{{ (offset // limit) + 1 }} / {{ total_pages }}</span>
+            <span class="page-display" id="pageDisplay"></span>
             <button data-nav="next"  onclick="goToOffset(currentOffset + currentLimit)">&#8594;</button>
             <button data-nav="last"  onclick="goToOffset((totalPages - 1) * currentLimit)">&#8677;</button>
         </div>
 
-        <span class="page-info">
-            {{ offset + 1 }}–{{ [offset + limit, total_count] | min }} z {{ total_count }} záznamů
-        </span>
+        <span class="page-info" id="pageInfo">
     </div>
-
-    <div class="model-toggles" id="modelToggles"></div>
-
+    <h3>Sumární hodnoty koroze</h3>
     <div class="chart-wrapper">
         <canvas id="sumChart"></canvas>
     </div>
+    <h3>Změny koroze</h3>
     <div class="chart-wrapper">
         <canvas id="diffChart"></canvas>
     </div>
@@ -155,13 +148,13 @@
         <button onclick="windowSize(false)">
             <i class="fa fa-search-plus" aria-hidden="true"></i>
         </button>
-        <select class="windowSizeInput" name="limit" onchange="goToOffset(0, this)">
+        <select class="windowSizeInput" id="windowSizeInput" name="limit" onchange="goToOffset(0, this)">
             <option value="5"   {% if limit == 5   %} selected {% endif %}>5</option>
             <option value="10"  {% if limit == 10  %} selected {% endif %}>10</option>
             <option value="25"  {% if limit == 25  %} selected {% endif %}>25</option>
             <option value="50"  {% if limit == 50  %} selected {% endif %}>50</option>
             <option value="100" {% if limit == 100 %} selected {% endif %}>100</option>
-            <option value="{{ total_count }}" {% if limit == total_count %} selected {% endif %}>Vše</option>
+            <option value=""   {% if limit == totalCount %} selected {% endif %}>Vše</option>
         </select>
         <button onclick="windowSize(true)">
             <i class="fa fa-search-minus" aria-hidden="true"></i>
@@ -171,43 +164,21 @@
             <label>Stránka:</label>
             <button data-nav="first" onclick="goToOffset(0)">&#8676;</button>
             <button data-nav="prev"  onclick="goToOffset(currentOffset - currentLimit)">&#8592;</button>
-            <span class="page-display">{{ (offset // limit) + 1 }} / {{ total_pages }}</span>
+            <span class="page-display" id="pageDisplay"></span>
             <button data-nav="next"  onclick="goToOffset(currentOffset + currentLimit)">&#8594;</button>
             <button data-nav="last"  onclick="goToOffset((totalPages - 1) * currentLimit)">&#8677;</button>
         </div>
 
-        <span class="page-info">
-            {{ offset + 1 }}–{{ [offset + limit, total_count] | min }} z {{ total_count }} záznamů
-        </span>
+        <span class="page-info" id="pageInfo"></span>
     </div>
 </div>
     
 
 </body>
 <script>
-let predData = {{data | tojson | safe }};
-let allModels = {{ all_model_names | tojson | safe }};
-let currentOffset = {{ offset }};
-let currentLimit  = {{ limit }};
-let totalPages   = {{ total_pages }};
-let totalCount  = {{ total_count }};
-let allDatetimes = {{ datetimes | list | tojson | safe }};
-
-const MODEL_COLORS = [
-    '#D85A30', '#378ADD', '#1D9E75', '#BA7517', '#7F77DD',
-    '#E6376A', '#22B5B5', '#8B6914', '#4CAF50', '#FF5722'
-];
-
 function getModelColor(index) {
     return MODEL_COLORS[index % MODEL_COLORS.length];
 }
-
-const modelColorIndex = {};
-const predActive = {};
-allModels.forEach((m, i) => { 
-    modelColorIndex[m] = i; 
-    predActive[m] = true; 
-});
 
 function renderTable() {
     const tbody = document.getElementById('predTbody');
@@ -231,25 +202,7 @@ function renderTable() {
     });
 }
 
-function renderModelActiveToggles() {
-    const el = document.getElementById('modelToggles');
-    el.innerHTML = allModels.map((m, i) => {
-        const color = getModelColor(i);
-        const active = predActive[m];
-        return `<button class="${active ? 'active' : ''}" data-model="${m}"
-            style="--model-color:${color}"
-            onclick="toggleModelActive('${m}')">
-            <span class="toggle-dot" style="background:${color}"></span>
-            ${m}
-        </button>`;
-    }).join('');
-}
 
-function toggleModelActive(modelName) {
-    predActive[modelName] = !predActive[modelName];
-    renderModelActiveToggles();
-    buildCharts();
-}
 
 let sumChartInst  = null;
 let diffChartInst = null;
@@ -265,27 +218,26 @@ function buildSumChart() {
     const gridColor = 'rgba(0,0,0,0.07)';
     const tickColor = 'rgba(0,0,0,0.45)';
  
-    const datasets = Object.entries(predActive)
-        .filter(([,active]) => active)
-        .map(([m]) => {
-            const color = getModelColor(modelColorIndex[m]);
-            return {
-                label: m,
-                data: allDatetimes.map(dt => {
-                    const v = predData[m]?.[dt]?.sum;
-                    return v !== undefined ? v : null;
-                }),
-                borderColor: color,
-                backgroundColor: color + '22',
-                borderWidth: 2,
-                pointRadius: 3,
-                pointHoverRadius: 6,
-                tension: 0.3,
-                fill: false,
-                spanGaps: true,
-            };
-        });
- 
+    const datasets = allModels.map(model => {
+        const color = getModelColor(modelColorIndex[model]);
+
+        return {
+            label: model,
+            data: allDatetimes.map(dt => {
+                const v = predData[model]?.[dt]?.sum;
+                return v ?? null;
+            }),
+            borderColor: color,
+            backgroundColor: color + '22',
+            borderWidth: 2,
+            pointRadius: 3,
+            pointHoverRadius: 6,
+            tension: 0.3,
+            fill: false,
+            spanGaps: true,
+            hidden: !predActiveSum[model],
+        };
+    });
     sumChartInst = new Chart(document.getElementById('sumChart'), {
         type: 'line',
         data: { labels: allDatetimes, datasets },
@@ -295,9 +247,18 @@ function buildSumChart() {
             interaction: { mode: 'index', intersect: false },
             plugins: {
                 legend: {
-                    display: true, position: 'bottom', align: 'start',
+                    display: true, position: 'top', align: 'start',
                     labels: { usePointStyle: true },
-                    title: { display: true, text: 'Legenda', font: { size: 14 }, position: 'start' }
+                    title: { display: true, text: 'Legenda', font: { size: 14 }, position: 'start' },
+                    onClick(e, legendItem, legend) {
+                        const modelName = legendItem.text;
+                        predActiveSum[modelName] = !predActiveSum[modelName];
+                        sessionStorage.setItem("predActiveSum", JSON.stringify(predActiveSum));
+                        requestAnimationFrame(() => {
+                            sumChartInst.destroy();
+                            buildSumChart();
+                        });
+                    }
                 },
                 tooltip: {
                     enabled: true,
@@ -310,8 +271,18 @@ function buildSumChart() {
                 }
             },
             scales: {
-                x: { ticks: { color: tickColor, maxTicksLimit: 10, font: { size: 11 } }, grid: { color: gridColor } },
-                y: { position: 'left', title: { display: true, text: 'µm', color: tickColor }, ticks: { color: tickColor }, grid: { color: gridColor } }
+                x: { ticks: { 
+                        color: tickColor, 
+                        maxTicksLimit: 10, 
+                        font: { size: 11 } }, 
+                    grid: { color: gridColor } },
+                y: { position: 'left', 
+                    title: { display: true, 
+                        text: 'µm', 
+                        color: tickColor }, 
+                    ticks: { color: tickColor }, 
+                    grid: { color: gridColor },
+                    min: 0}
             }
         }
     });
@@ -323,22 +294,26 @@ function buildDiffChart() {
     const gridColor = 'rgba(0,0,0,0.07)';
     const tickColor = 'rgba(0,0,0,0.45)';
  
-    const datasets = Object.entries(predActive)
-        .filter(([,active]) => active)
-        .map(([m]) => {
-            const color = getModelColor(modelColorIndex[m]);
-            return {
-                label: m,
-                data: allDatetimes.map(dt => {
-                    const v = predData[m]?.[dt]?.diff;
-                    return v !== undefined ? v : null;
-                }),
-                backgroundColor: color + 'BB',
-                borderColor: color,
-                borderWidth: 1,
-                borderRadius: 3,
-            };
-        });
+    const datasets = allModels.map(model => {
+        const color = getModelColor(modelColorIndex[model]);
+
+        return {
+            label: model,
+            data: allDatetimes.map(dt => {
+                const v = predData[model]?.[dt]?.diff;
+                return v ?? null;
+            }),
+            borderColor: color,
+            backgroundColor: color + '22',
+            borderWidth: 2,
+            pointRadius: 3,
+            pointHoverRadius: 6,
+            tension: 0.3,
+            fill: false,
+            spanGaps: true,
+            hidden: !predActiveDiff[model],
+        };
+    });
  
     diffChartInst = new Chart(document.getElementById('diffChart'), {
         type: 'bar',
@@ -349,9 +324,18 @@ function buildDiffChart() {
             interaction: { mode: 'index', intersect: false },
             plugins: {
                 legend: {
-                    display: true, position: 'bottom', align: 'start',
+                    display: true, position: 'top', align: 'start',
                     labels: { usePointStyle: true },
-                    title: { display: true, text: 'Legenda', font: { size: 14 }, position: 'start' }
+                    title: { display: true, text: 'Legenda', font: { size: 14 }, position: 'start' },
+                    onClick(e, legendItem, legend) {
+                        const modelName = legendItem.text;
+                        predActiveDiff[modelName] = !predActiveDiff[modelName];
+                        sessionStorage.setItem("predActiveDiff", JSON.stringify(predActiveDiff));
+                        requestAnimationFrame(() => {
+                            diffChartInst.destroy();
+                            buildDiffChart();
+                        });
+                    }
                 },
                 tooltip: {
                     enabled: true,
@@ -364,21 +348,28 @@ function buildDiffChart() {
                 }
             },
             scales: {
-                x: { ticks: { color: tickColor, maxTicksLimit: 10, font: { size: 11 } }, grid: { color: gridColor } },
-                y: { position: 'left', title: { display: true, text: 'µm', color: tickColor }, ticks: { color: tickColor }, grid: { color: gridColor } }
+                x: { ticks: { 
+                        color: tickColor, 
+                        maxTicksLimit: 10, 
+                        font: { size: 11 } }, 
+                        grid: { color: gridColor } },
+                y: { position: 'left', 
+                    title: { 
+                        display: true, 
+                        text: 'µm', 
+                        color: tickColor }, 
+                    ticks: { color: tickColor }, 
+                    grid: { color: gridColor } }
             }
         }
     });
 }
 
 async function fetchAndRender(offset, limit) {
-    const maxOffset = Math.max(0, (totalPages - 1) * limit);
-    offset = Math.max(0, Math.min(offset, maxOffset));
+
     sessionStorage.setItem('predOffset', offset);
     sessionStorage.setItem('predLimit', limit);
-    const modelParams = Object.keys(predActive).filter(m => predActive[m]).map(m => `model_names=${encodeURIComponent(m)}`).join('&');
-
-    const url = `/api/meteo_prediction?offset=${offset}&limit=${limit}${modelParams ? '&' + modelParams : ''}`
+    const url = `/api/meteo_prediction?offset=${offset}&limit=${limit}`;
     const res  = await fetch(url);
     const json = await res.json();
     
@@ -389,6 +380,8 @@ async function fetchAndRender(offset, limit) {
     allDatetimes = json.datetimes;
     predData = json.data;
     totalCount = json.total_count;
+    allModels = json.all_model_names;
+    sessionStorage.setItem('allModels', JSON.stringify(allModels));
 
     updatePagination(currentOffset, currentLimit, totalCount);
     renderTable();
@@ -403,13 +396,7 @@ function setView(view) {
     document.getElementById('viewChart').style.display = view === 'chart' ? '' : 'none';
 
     localStorage.setItem('predView', view);
-    if (view === 'chart') {
-        renderModelActiveToggles();
-        buildCharts();
-    }
-    else {
-        renderTable();
-    }
+
 }
 
 
@@ -439,40 +426,46 @@ async function windowSize(zoom) {
 
 function updatePagination(offset, limit, total) {
     const maxTotal = typeof total === "object"
-    ? Object.values(total).reduce((a, b) => a + (Number(b) || 0), 0)
-    : (Number(total) || 0);
+        ? Object.values(total).reduce((a, b) => a + (Number(b) || 0), 0)
+        : (Number(total) || 0);
+
     const pages = Math.ceil(maxTotal / limit) || 1;
 
-    const from    = total === 0 ? 0 : offset + 1;
-    const to      = Math.min(offset + limit, maxTotal);
+    const from = maxTotal === 0 ? 0 : offset + 1;
+    const to = Math.min(offset + limit, maxTotal);
     const atStart = offset <= 0;
-    const atEnd   = offset + limit >= maxTotal;
+    const atEnd = offset + limit >= maxTotal;
 
     document.querySelectorAll('.rowsPerPage, .windowSizeInput').forEach(select => {
         const allOption = select.querySelector('option:last-child');
-        if (allOption) allOption.value = total;
+        if (allOption) {
+            allOption.value = maxTotal;
+            allOption.textContent = "Vše";
+        }
     });
 
     document.querySelectorAll('.page-display')
-        .forEach(el => el.textContent = `${Math.floor(offset / limit) + 1} / ${totalPages}`);
+        .forEach(el =>
+            el.textContent = `${Math.floor(offset / limit) + 1} / ${pages}`
+        );
 
-    // Info o záznamech
     document.querySelectorAll('.page-info')
-        .forEach(el => el.textContent = `${from}–${to} z ${maxTotal} záznamů`);
+        .forEach(el =>
+            el.textContent = `${from}–${to} z ${maxTotal} záznamů`
+        );
 
-    // Disabled stavy tlačítek
     document.querySelectorAll('[data-nav="first"], [data-nav="prev"]')
         .forEach(btn => btn.disabled = atStart);
+
     document.querySelectorAll('[data-nav="next"], [data-nav="last"]')
         .forEach(btn => btn.disabled = atEnd);
 
-    // Selecty a inputy
     document.querySelectorAll('.rowsPerPage')
         .forEach(el => el.value = limit);
+
     document.querySelectorAll('.windowSizeInput')
         .forEach(el => el.value = limit);
 }
-
 
 
 
@@ -490,19 +483,38 @@ function fmt(x) {
 
 
 // Inicializace
+let predData;
+let allModels = {{ all_model_names | tojson | safe }};
+let currentOffset;
+let currentLimit;
+let totalPages;
+let totalCount;
+let allDatetimes;
+
+const MODEL_COLORS = [
+    '#D85A30', '#378ADD', '#1D9E75', '#BA7517', '#7F77DD',
+    '#E6376A', '#22B5B5', '#8B6914', '#4CAF50', '#FF5722'
+];
+
+const modelColorIndex = {};
+const predActiveSum = {};
+const predActiveDiff = {};
+const storedPredActiveSum = JSON.parse(sessionStorage.getItem('predActiveSum')) || {};
+const storedPredActiveDiff = JSON.parse(sessionStorage.getItem('predActiveDiff')) || {};
+allModels.forEach((m, i) => { 
+    modelColorIndex[m] = i; 
+    predActiveSum[m] = storedPredActiveSum[m] !== undefined ? storedPredActiveSum[m] : true;
+    predActiveDiff[m] = storedPredActiveDiff[m] !== undefined ? storedPredActiveDiff[m] : true;
+});
 
 const savedView    = localStorage.getItem('predView') || 'table';
-const savedOffset  = Number(sessionStorage.getItem('predOffset')) || currentOffset;
-const savedLimit   = Number(sessionStorage.getItem('predLimit'))  || currentLimit;
+const savedOffset  = Number(sessionStorage.getItem('predOffset')) || 0;
+const savedLimit   = Number(sessionStorage.getItem('predLimit'))  || 100;
 
+console.log('Saved view:', savedView, 'Saved offset:', savedOffset, 'Saved limit:', savedLimit, 'limit type', typeof savedLimit);
+fetchAndRender(savedOffset, savedLimit);
 setView(savedView);
 
-
-if (savedOffset !== currentOffset || savedLimit !== currentLimit) {
-    fetchAndRender(savedOffset, savedLimit);
-} else {
-    buildCharts();
-}
 
 function downloadFiles() {
     const res = fetch('/export_csv').then(r => r.json()).then(data => {

@@ -41,13 +41,13 @@
         <div class="pagination-bar">
             <div class="rows-select-wrap">
                 <label for="rowsPerPage">Řádků na stránku:</label>
-                <select class="rowsPerPage" name="limit" onchange="goToOffset(0, this)">
+                <select class="rowsPerPage" id="rowsPerPage" name="limit" onchange="goToOffset(0, this)">
                     <option value="5"   {% if limit == 5   %} selected {% endif %}>5</option>
                     <option value="10"  {% if limit == 10  %} selected {% endif %}>10</option>
                     <option value="25"  {% if limit == 25  %} selected {% endif %}>25</option>
                     <option value="50"  {% if limit == 50  %} selected {% endif %}>50</option>
                     <option value="100" {% if limit == 100 %} selected {% endif %}>100</option>
-                    <option value="{{ total_count }}" {% if limit == total_count %} selected {% endif %}>Vše</option>
+                    <option value=""   {% if limit == totalCount %} selected {% endif %}>Vše</option>
                 </select>
             </div>
 
@@ -55,14 +55,12 @@
                 <label>Stránka:</label>
                 <button data-nav="first" onclick="goToOffset(0)">&#8676;</button>
                 <button data-nav="prev"  onclick="goToOffset(currentOffset - currentLimit)">&#8592;</button>
-                <span class="page-display">{{ (offset // limit) + 1 }} / {{ total_pages }}</span>
+                <span class="page-display" id="pageDisplay"></span>
                 <button data-nav="next"  onclick="goToOffset(currentOffset + currentLimit)">&#8594;</button>
                 <button data-nav="last"  onclick="goToOffset((totalPages - 1) * currentLimit)">&#8677;</button>
             </div>
         
-            <span class="page-info">
-                {{ offset + 1 }}–{{ [offset + limit, total_count] | min }} z {{ total_count }} záznamů
-            </span>
+            <span class="page-info" id="pageInfo"></span>
         </div>
 
         <table border="1">
@@ -78,30 +76,19 @@
                 </tr>
             </thead>
             <tbody>
-                {% for row in data %}
-                <tr>
-                    <td>{{ row.Datetime | default('-') }}</td>
-                    <td>{{ row.temp_out | default('-') }}</td>
-                    <td>{{ row.dew_out | default('-') }}</td>
-                    <td>{{ row.winddir | default('-') }}</td>
-                    <td>{{ row.qnh | default('-') }}</td>
-                    <td>{{ row.windspeed | default('-') }}</td>
-                    <td>{{ row.hum_out | default('-') }}</td>
-                </tr>
-                {% endfor %}
             </tbody>
         </table>
         
         <div class="pagination-bar">
             <div class="rows-select-wrap">
                 <label for="rowsPerPage">Řádků na stránku:</label>
-                <select class="rowsPerPage" name="limit" onchange="goToOffset(0, this)">
+                <select class="rowsPerPage" id="rowsPerPage" name="limit" onchange="goToOffset(0, this)">
                     <option value="5"   {% if limit == 5   %} selected {% endif %}>5</option>
                     <option value="10"  {% if limit == 10  %} selected {% endif %}>10</option>
                     <option value="25"  {% if limit == 25  %} selected {% endif %}>25</option>
                     <option value="50"  {% if limit == 50  %} selected {% endif %}>50</option>
                     <option value="100" {% if limit == 100 %} selected {% endif %}>100</option>
-                    <option value="{{ total_count }}" {% if limit == total_count %} selected {% endif %}>Vše</option>
+                    <option value=""   {% if limit == totalCount %} selected {% endif %}>Vše</option>
                 </select>
             </div>
 
@@ -109,14 +96,12 @@
                 <label>Stránka:</label>
                 <button data-nav="first" onclick="goToOffset(0)">&#8676;</button>
                 <button data-nav="prev"  onclick="goToOffset(currentOffset - currentLimit)">&#8592;</button>
-                <span class="page-display">{{ (offset // limit) + 1 }} / {{ total_pages }}</span>
+                <span class="page-display" id="pageDisplay"></span>
                 <button data-nav="next"  onclick="goToOffset(currentOffset + currentLimit)">&#8594;</button>
                 <button data-nav="last"  onclick="goToOffset((totalPages - 1) * currentLimit)">&#8677;</button>
             </div>
 
-            <span class="page-info">
-                {{ offset + 1 }}–{{ [offset + limit, total_count] | min }} z {{ total_count }} záznamů
-            </span>
+            <span class="page-info" id="pageInfo"></span>
         </div>
     </div>
     <div id="viewChart" style="display: none;">
@@ -125,13 +110,13 @@
             <button onclick="windowSize(false)">
                 <i class="fa fa-search-plus" aria-hidden="true"></i>
             </button>
-            <select class="windowSizeInput" name="limit" onchange="goToOffset(0, this)">
+            <select class="windowSizeInput" id="windowSizeInput" name="limit" onchange="goToOffset(0, this)">
                     <option value="5"   {% if limit == 5   %} selected {% endif %}>5</option>
                     <option value="10"  {% if limit == 10  %} selected {% endif %}>10</option>
                     <option value="25"  {% if limit == 25  %} selected {% endif %}>25</option>
                     <option value="50"  {% if limit == 50  %} selected {% endif %}>50</option>
                     <option value="100" {% if limit == 100 %} selected {% endif %}>100</option>
-                    <option value="{{ total_count }}" {% if limit == total_count %} selected {% endif %}>Vše</option>
+                    <option value=""   {% if limit == totalCount %} selected {% endif %}>Vše</option>
                 </select>
             <button onclick="windowSize(true)">
                 <i class="fa fa-search-minus" aria-hidden="true"></i>
@@ -141,43 +126,53 @@
                 <label>Stránka:</label>
                 <button data-nav="first" onclick="goToOffset(0)">&#8676;</button>
                 <button data-nav="prev"  onclick="goToOffset(currentOffset - currentLimit)">&#8592;</button>
-                <span class="page-display">{{ (offset // limit) + 1 }} / {{ total_pages }}</span>
+                <span class="page-display" id="pageDisplay"></span>
                 <button data-nav="next"  onclick="goToOffset(currentOffset + currentLimit)">&#8594;</button>
                 <button data-nav="last"  onclick="goToOffset((totalPages - 1) * currentLimit)">&#8677;</button>
             </div>
 
-            <span class="page-info">
-                {{ offset + 1 }}–{{ [offset + limit, total_count] | min }} z {{ total_count }} záznamů
-            </span>
+            <span class="page-info" id="pageInfo"></span>
         </div>
-        <div class="metric-toggles" id="meteoToggles">
-                <button class="active" data-key="temp"  onclick="toggleMeteo('temp')">Teplota</button>
-                <button class="active" data-key="hum"   onclick="toggleMeteo('hum')">Vlhkost</button>
-                <button class="active" data-key="dew"   onclick="toggleMeteo('dew')">Rosný bod</button>
-                <button            data-key="wind"  onclick="toggleMeteo('wind')">Rychlost větru</button>
-                <button            data-key="pres"  onclick="toggleMeteo('pres')">Tlak</button>
-        </div>
-
-        <div class="metric-row" id="meteoCards"></div>
-
+               
         <div class="chart-wrapper">
             <canvas id="meteoChart"></canvas>
             
         </div>
-        <div class="chart-tooltip" id="meteoTooltip"></div>
+        <div class="metric-row" id="meteoCards"></div>
+        <div class="window-controls">
+            <label for="windowSizeInput">Velikost okna:</label>
+            <button onclick="windowSize(false)">
+                <i class="fa fa-search-plus" aria-hidden="true"></i>
+            </button>
+            <select class="windowSizeInput" id="windowSizeInput" name="limit" onchange="goToOffset(0, this)">
+                    <option value="5"   {% if limit == 5   %} selected {% endif %}>5</option>
+                    <option value="10"  {% if limit == 10  %} selected {% endif %}>10</option>
+                    <option value="25"  {% if limit == 25  %} selected {% endif %}>25</option>
+                    <option value="50"  {% if limit == 50  %} selected {% endif %}>50</option>
+                    <option value="100" {% if limit == 100 %} selected {% endif %}>100</option>
+                    <option value=""   {% if limit == totalCount %} selected {% endif %}>Vše</option>
+                </select>
+            <button onclick="windowSize(true)">
+                <i class="fa fa-search-minus" aria-hidden="true"></i>
+            </button>
+
+            <div class="page-counter">
+                <label>Stránka:</label>
+                <button data-nav="first" onclick="goToOffset(0)">&#8676;</button>
+                <button data-nav="prev"  onclick="goToOffset(currentOffset - currentLimit)">&#8592;</button>
+                <span class="page-display" id="pageDisplay"></span>
+                <button data-nav="next"  onclick="goToOffset(currentOffset + currentLimit)">&#8594;</button>
+                <button data-nav="last"  onclick="goToOffset((totalPages - 1) * currentLimit)">&#8677;</button>
+            </div>
+
+            <span class="page-info" id="pageInfo"></span>
+        </div>
     </div>
     
 
 </body>
 <script>
-let currentOffset = {{ offset }};
-let currentLimit  = {{ limit }};
-let totalPages   = {{ total_pages }};
-const totalCount  = {{ total_count }};
-
 async function fetchAndRender(offset, limit) {
-    const maxOffset = Math.max(0, (totalPages - 1) * limit);
-    offset = Math.max(0, Math.min(offset, maxOffset));
     sessionStorage.setItem('meteoOffset', offset);
     sessionStorage.setItem('meteoLimit', limit);
 
@@ -188,6 +183,7 @@ async function fetchAndRender(offset, limit) {
     currentOffset = json.offset;
     currentLimit  = json.limit;
     totalPages    = json.total_pages;
+    totalCount    = json.total_count;
 
     Object.assign(meteoData, {
         temp:  json.data.map(r => r.temp_out),
@@ -202,11 +198,16 @@ async function fetchAndRender(offset, limit) {
     const newMaxOffset = Math.max(0, (totalPages - 1) * currentLimit);
     currentOffset = Math.min(currentOffset, newMaxOffset);
 
+    console.log(buildMeteoScales());
+    console.log(buildMeteoDatasets());
+
     updatePagination(json.offset, json.limit, json.total_count);
     renderTable(json.data);
     renderMeteoCards();
     buildMeteoChart();
 }
+
+
 
 function setView(view) {
     document.getElementById('btnTable').classList.toggle('active', view === 'table');
@@ -240,51 +241,50 @@ async function windowSize(zoom) {
 }
 
 function updatePagination(offset, limit, total) {
-    const from    = total === 0 ? 0 : offset + 1;
-    const to      = Math.min(offset + limit, total);
+    const maxTotal = typeof total === "object"
+        ? Object.values(total).reduce((a, b) => a + (Number(b) || 0), 0)
+        : (Number(total) || 0);
+
+    const pages = Math.ceil(maxTotal / limit) || 1;
+
+    const from = maxTotal === 0 ? 0 : offset + 1;
+    const to = Math.min(offset + limit, maxTotal);
     const atStart = offset <= 0;
-    const atEnd   = offset + limit >= total;
+    const atEnd = offset + limit >= maxTotal;
+
+    document.querySelectorAll('.rowsPerPage, .windowSizeInput').forEach(select => {
+        const allOption = select.querySelector('option:last-child');
+        if (allOption) {
+            allOption.value = maxTotal;
+            allOption.textContent = "Vše";
+        }
+    });
 
     document.querySelectorAll('.page-display')
-        .forEach(el => el.textContent = `${Math.floor(offset / limit) + 1} / ${totalPages}`);
+        .forEach(el =>
+            el.textContent = `${Math.floor(offset / limit) + 1} / ${pages}`
+        );
 
-    // Info o záznamech
     document.querySelectorAll('.page-info')
-        .forEach(el => el.textContent = `${from}–${to} z ${total} záznamů`);
+        .forEach(el =>
+            el.textContent = `${from}–${to} z ${maxTotal} záznamů`
+        );
 
-    // Disabled stavy tlačítek
     document.querySelectorAll('[data-nav="first"], [data-nav="prev"]')
         .forEach(btn => btn.disabled = atStart);
+
     document.querySelectorAll('[data-nav="next"], [data-nav="last"]')
         .forEach(btn => btn.disabled = atEnd);
 
-    // Selecty a inputy
     document.querySelectorAll('.rowsPerPage')
         .forEach(el => el.value = limit);
+
     document.querySelectorAll('.windowSizeInput')
         .forEach(el => el.value = limit);
 }
 
-const meteoLabels = {{ data | map(attribute='Datetime') | list | tojson | safe }};
-const meteoData = {
-    temp:  {{ data | map(attribute='temp_out')  | list | tojson | safe }},
-    dew:   {{ data | map(attribute='dew_out')   | list | tojson | safe }},
-    hum:   {{ data | map(attribute='hum_out')   | list | tojson | safe }},
-    wind:  {{ data | map(attribute='windspeed') | list | tojson | safe }},
-    pres:  {{ data | map(attribute='qnh')       | list | tojson | safe }},
-};
 
 
-const meteoMeta = {
-    temp: { label: 'Teplota',        unit: '°C',   color: '#D85A30', axis: 'yLeft'  },
-    dew:  { label: 'Rosný bod',      unit: '°C',   color: '#1D9E75', axis: 'yLeft'  },
-    hum:  { label: 'Vlhkost',        unit: '%',    color: '#378ADD', axis: 'yHum'   },
-    wind: { label: 'Rychlost větru', unit: 'm/s',  color: '#BA7517', axis: 'yWind'  },
-    pres: { label: 'Tlak',           unit: 'hPa',  color: '#7F77DD', axis: 'yPres'  },
-};
-
-// Stav: které metriky jsou aktivní
-const meteoActive = { temp: true, hum: true, dew: true, wind: false, pres: false };
 
 // Pomocné funkce
 function avg(arr) { return arr.reduce((a,b) => a+b, 0) / arr.length; }
@@ -314,8 +314,8 @@ function renderMeteoCards() {
 // Sestavení datasetů
 function buildMeteoDatasets() {
     return Object.entries(meteoMeta)
-        .filter(([k]) => meteoActive[k])
         .map(([k, m]) => ({
+            key: k,
             label: m.label,
             data: meteoData[k].map(Number),
             borderColor: m.color,
@@ -326,6 +326,7 @@ function buildMeteoDatasets() {
             tension: 0.3,
             fill: false,
             yAxisID: m.axis,
+            hidden: !meteoActive[k],
         }));
 }
 
@@ -335,19 +336,25 @@ function buildMeteoScales() {
     const tickColor = 'rgba(0,0,0,0.45)';
     const scales = {
         x: {
-            ticks: { color: tickColor, maxTicksLimit: 10, font: { size: 11 } },
+            ticks: { 
+                color: tickColor, 
+                maxTicksLimit: 10, 
+                font: { size: 11 },
+                minRotation: 10,
+                maxRotation: 90,
             grid:  { color: gridColor },
-        },
-        yLeft: {
-            position: 'left',
-            title: { display: true, text: '°C', color: tickColor, font: { size: 11 } },
-            ticks: { color: tickColor, font: { size: 11 } },
-            grid:  { color: gridColor },
+            }
         },
     };
-    if (meteoActive.hum)  scales.yHum  = { position:'right', min:0, max:100, title:{display:true,text:'%',color:tickColor,font:{size:11}}, ticks:{color:tickColor,font:{size:11}}, grid:{display:false} };
-    if (meteoActive.wind) scales.yWind = { position:'right', title:{display:true,text:'m/s',color:tickColor,font:{size:11}}, ticks:{color:tickColor,font:{size:11}}, grid:{display:false} };
-    if (meteoActive.pres) scales.yPres = { position:'right', title:{display:true,text:'hPa',color:tickColor,font:{size:11}}, ticks:{color:tickColor,font:{size:11}}, grid:{display:false} };
+    meteoActive && Object.entries(meteoMeta).forEach(([k, m]) => {
+        scales[m.axis] = {
+            type: 'linear',
+            position: m.axis === 'yLeft' ? 'left' : 'right',
+            ticks: { color: tickColor, font: { size: 11 }, callback: v => `${v} ${m.unit}` },
+            grid:  { display: m.axis === 'yLeft', color: gridColor },
+            display: meteoActive[k],
+        };
+    });
     return scales;
 }
 
@@ -365,75 +372,42 @@ function buildMeteoChart() {
             interaction: { mode: 'index', intersect: false },
             plugins: {
                 legend: { display: true,
-                        position: 'bottom', 
+                        position: 'top', 
                         align: 'start', 
                         labels: {usePointStyle: true}, 
-                        title: {display: true, text: 'Legenda', font: {size: 14}, position: 'start'} },
+                        title: {display: true, text: 'Legenda', font: {size: 14}, position: 'start'} ,
+                        onClick(e, legendItem, legend) {
+                            const ds = legend.chart.data.datasets[legendItem.datasetIndex];
+
+                            meteoActive[ds.key] = !meteoActive[ds.key];
+
+                            sessionStorage.setItem("meteoActive", JSON.stringify(meteoActive));
+
+                            requestAnimationFrame(() => {
+                                meteoChartInst.destroy();
+                                buildMeteoChart();
+                            });
+                }}   
+                    ,
                 tooltip: {
-                    enabled: false,
-                    external(ctx) {
-                        const tooltip = ctx.tooltip;
-                        const el = document.getElementById('meteoTooltip');
-
-                        if (tooltip.opacity === 0) {
-                            el.style.display = 'none';
-                            return;
-                        }
-
-                        const canvasRect = ctx.chart.canvas.getBoundingClientRect();
-
-                        el.style.display = 'block';
-                        el.style.top =
-                            canvasRect.top +
-                            window.pageYOffset +
-                            tooltip.caretY -
-                            10 + 'px';
-
-                        el.innerHTML =
-                            `<div class="tt-date">${tooltip.title[0]}</div>` +
-                            tooltip.dataPoints.map(p => {
-                                const meta = Object.values(meteoMeta).find(m => m.label === p.dataset.label);
-                                const unit = meta ? meta.unit : '';
-                                return `<div class="tt-row" style="color:${p.dataset.borderColor}">
-                                    ${p.dataset.label}: <strong>${p.formattedValue} ${unit}</strong>
-                                </div>`;
-                            }).join('');
-
-                        // Nejdřív nastav doprava (výchozí)
-                        el.style.left =
-                            canvasRect.left +
-                            window.pageXOffset +
-                            tooltip.caretX +
-                            10 + 'px';
-
-                        // Po překreslení změř skutečnou pozici a flipni pokud přesahuje
-                        requestAnimationFrame(() => {
-                            const ttRect = el.getBoundingClientRect();
-                            if (ttRect.right > window.innerWidth - 8) {
-                                el.style.left =
-                                    canvasRect.left +
-                                    window.pageXOffset +
-                                    tooltip.caretX -
-                                    ttRect.width -
-                                    10 + 'px';
-                            }
-                        });
+                    enabled: true,
+                    callbacks:{
+                            label: function(context) {
+                                const dataset = context.dataset;
+                                const value = context.raw;
+                                const unit = meteoMeta[Object.keys(meteoMeta)[context.datasetIndex]].unit;
+                                return `${dataset.label}: ${value} ${unit}`;
+                            }  
                     }
-                }
+                },
+                
             },
             scales: buildMeteoScales(),
-        }
-    });
+    }});
+
 }
 
-function toggleMeteo(key) {
-    meteoActive[key] = !meteoActive[key];
-    // Aktualizuj styl tlačítka
-    document.querySelector(`#meteoToggles [data-key="${key}"]`)
-        .classList.toggle('active', meteoActive[key]);
-    renderMeteoCards();
-    buildMeteoChart();
-}
+
 
 function renderTable(data) {
     const tbody = document.querySelector('#viewTable table tbody');
@@ -451,19 +425,40 @@ function renderTable(data) {
 }
 
 // Inicializace
+const meteoLabels = {{ data | map(attribute='Datetime') | list | tojson | safe }};
+const meteoData = {
+    temp:  {{ data | map(attribute='temp_out')  | list | tojson | safe }},
+    dew:   {{ data | map(attribute='dew_out')   | list | tojson | safe }},
+    hum:   {{ data | map(attribute='hum_out')   | list | tojson | safe }},
+    wind:  {{ data | map(attribute='windspeed') | list | tojson | safe }},
+    pres:  {{ data | map(attribute='qnh')       | list | tojson | safe }},
+};
+
+
+const meteoMeta = {
+    temp: { label: 'Teplota',        unit: '°C',   color: '#D85A30', axis: 'yLeft'  },
+    dew:  { label: 'Rosný bod',      unit: '°C',   color: '#1D9E75', axis: 'yLeft'  },
+    hum:  { label: 'Vlhkost',        unit: '%',    color: '#378ADD', axis: 'yHum'   },
+    wind: { label: 'Rychlost větru', unit: 'm/s',  color: '#BA7517', axis: 'yWind'  },
+    pres: { label: 'Tlak',           unit: 'hPa',  color: '#7F77DD', axis: 'yPres'  },
+};
+
+// Stav: které metriky jsou aktivní
+let meteoActive = sessionStorage.getItem('meteoActive') && JSON.parse(sessionStorage.getItem('meteoActive')) || { temp: true, hum: true, dew: true, wind: false, pres: false };
+
+let currentOffset;
+let currentLimit;
+let totalPages;
+let totalCount;
+
 
 const savedView    = localStorage.getItem('meteoView') || 'table';
-const savedOffset  = Number(sessionStorage.getItem('meteoOffset')) || currentOffset;
-const savedLimit   = Number(sessionStorage.getItem('meteoLimit'))  || currentLimit;
+const savedOffset  = Number(sessionStorage.getItem('meteoOffset')) || 0;
+const savedLimit   = Number(sessionStorage.getItem('meteoLimit'))  || 100;
 
 setView(savedView);
 
-if (savedOffset !== currentOffset || savedLimit !== currentLimit) {
-    fetchAndRender(savedOffset, savedLimit);
-} else {
-    renderMeteoCards();
-    buildMeteoChart();
-}
+fetchAndRender(savedOffset, savedLimit);
 
 function downloadFiles() {
     const res = fetch('/export_csv').then(r => r.json()).then(data => {
