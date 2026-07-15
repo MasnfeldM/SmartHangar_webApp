@@ -1,7 +1,7 @@
 versions/
+sql_queries/
 .env
 *.log
 *.pyc
-*.sql
 .dockerignore
 .gitignore
